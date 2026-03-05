@@ -1,0 +1,104 @@
+{
+  "projectType": "saas",
+  "projectName": "Kubernetes Dashboard",
+  "projectDescription": "General-purpose web UI for Kubernetes clusters that allows users to manage applications and troubleshoot clusters.",
+  "theme": "aspen",
+  "primaryColor": "#326ce5",
+  "lightColor": "#7ab3ff",
+  "darkColor": "#0047bb",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "accessing-dashboard"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "user/authentication",
+              "user/managing-applications",
+              "user/managing-resources",
+              "user/monitoring-metrics",
+              "user/viewing-logs",
+              "user/shell-access",
+              "user/labels-annotations",
+              "user/integrations"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/api-module",
+              "architecture/auth-module",
+              "architecture/web-module",
+              "architecture/metrics-scraper"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/helm-values",
+              "configuration/settings",
+              "configuration/security",
+              "configuration/ingress",
+              "configuration/arguments"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "development/getting-started",
+              "development/local-environment",
+              "development/building",
+              "development/testing",
+              "development/contributing"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/overview",
+              "api/resources",
+              "api/handlers",
+              "api/authentication",
+              "api/metrics"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Web-based UI for managing Kubernetes clusters",
+    "Multi-module architecture with API, Auth, Web, and Metrics Scraper",
+    "Resource management (Deployments, Pods, Services, etc.)",
+    "Real-time metrics visualization",
+    "Log viewing and shell access",
+    "RBAC-based access control",
+    "Helm-based installation with Kong gateway",
+    "Support for Custom Resource Definitions",
+    "Namespace-based resource isolation",
+    "Angular-based frontend with Material Design"
+  ],
+  "publicApiSurface": [
+    "API Module: /api/v1/clusterrole, /api/v1/clusterrolebinding, /api/v1/configmap, /api/v1/cronjob, /api/v1/customresourcedefinition, /api/v1/daemonset, /api/v1/deployment, /api/v1/endpoint, /api/v1/event, /api/v1/horizontalpodautoscaler, /api/v1/ingress, /api/v1/ingressclass, /api/v1/job, /api/v1/limitrange, /api/v1/logs, /api/v1/namespace, /api/v1/networkpolicy, /api/v1/node, /api/v1/persistentvolume, /api/v1/persistentvolumeclaim, /api/v1/pod, /api/v1/poddisruptionbudget, /api/v1/replicaset, /api/v1/replicationcontroller, /api/v1/resourcequota, /api/v1/role, /api/v1/rolebinding, /api/v1/secret, /api/v1/service, /api/v1/serviceaccount, /api/v1/statefulset, /api/v1/storageclass",
+    "Handlers: Terminal (exec/attach), Metrics, Download, Filter, Parser",
+    "Auth Module: Token authentication, OIDC support, CSRF protection",
+    "Metrics Scraper: Resource metrics collection and storage",
+    "Helm Chart Configuration: app.mode, app.security, api.containers, web.containers, auth.containers, metrics-scraper.containers, kong gateway settings, ingress configuration, RBAC settings, network policies",
+    "Global Settings: clusterName, itemsPerPage, labelsLimit, logsAutoRefreshTimeInterval, resourceAutoRefreshTimeInterval, disableAccessDeniedNotifications, hideAllNamespaces, defaultNamespace, namespaceFallbackList, pinnedResources"
+  ]
+}
