@@ -1,0 +1,294 @@
+---
+title: Dashboard Settings
+description: Configure global Dashboard settings and UI behavior
+---
+
+The Kubernetes Dashboard settings control the UI behavior, default namespaces, auto-refresh intervals, and pinned resources in the navigation menu.
+
+Settings are configured via Helm values under `app.settings` and stored in a ConfigMap named `kubernetes-dashboard-settings`.
+
+## Global Settings
+
+Global settings control the overall Dashboard UI behavior and defaults.
+
+<ParamField path="app.settings.global.clusterName" type="string" default="">
+  Cluster name that appears in the browser window title.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        clusterName: "Production Cluster"
+  ```
+  
+  When set, the browser tab title will show the cluster name, making it easier to distinguish between multiple Dashboard instances.
+</ParamField>
+
+<ParamField path="app.settings.global.itemsPerPage" type="number" default="10">
+  Maximum number of items displayed on each list page.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        itemsPerPage: 25
+  ```
+  
+  Increase this value for larger displays or decrease for better performance in large clusters.
+</ParamField>
+
+<ParamField path="app.settings.global.labelsLimit" type="number" default="3">
+  Maximum number of labels displayed by default on most views.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        labelsLimit: 5
+  ```
+  
+  Additional labels can be viewed by expanding the labels section. This setting helps keep the UI clean when resources have many labels.
+</ParamField>
+
+<ParamField path="app.settings.global.logsAutoRefreshTimeInterval" type="number" default="5">
+  Number of seconds between automatic log refreshes.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        logsAutoRefreshTimeInterval: 10
+  ```
+  
+  Set to 0 to disable auto-refresh of logs.
+</ParamField>
+
+<ParamField path="app.settings.global.resourceAutoRefreshTimeInterval" type="number" default="10">
+  Number of seconds between automatic resource list refreshes.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        resourceAutoRefreshTimeInterval: 15
+  ```
+  
+  Set to 0 to disable auto-refresh. This can reduce API server load in large clusters.
+</ParamField>
+
+<ParamField path="app.settings.global.disableAccessDeniedNotifications" type="boolean" default="false">
+  Hide access denied warnings in the notification panel.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        disableAccessDeniedNotifications: true
+  ```
+  
+  Useful when users have limited permissions and frequent access denied notifications become noise.
+</ParamField>
+
+<ParamField path="app.settings.global.hideAllNamespaces" type="boolean" default="false">
+  Hide the "All namespaces" option in the namespace selection dropdown.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        hideAllNamespaces: true
+  ```
+  
+  **Important**: Enable this in large clusters to prevent accidental selection of all namespaces, which can cause OOM (Out Of Memory) errors.
+</ParamField>
+
+<ParamField path="app.settings.global.defaultNamespace" type="string" default="default">
+  Namespace selected by default after logging in.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        defaultNamespace: kube-system
+  ```
+</ParamField>
+
+<ParamField path="app.settings.global.namespaceFallbackList" type="array" default="[]">
+  List of namespaces presented to users without namespace list privileges.
+  
+  ```yaml
+  app:
+    settings:
+      global:
+        namespaceFallbackList:
+          - default
+          - kube-system
+          - kube-public
+  ```
+  
+  When users don't have permission to list all namespaces, these namespaces will be available in the dropdown.
+</ParamField>
+
+## Pinned Resources
+
+Pinned resources appear in the Dashboard's left navigation menu, providing quick access to Custom Resource Definitions (CRDs).
+
+<ParamField path="app.settings.pinnedResources" type="array" default="[]">
+  List of custom resources to pin in the navigation menu.
+  
+  ```yaml
+  app:
+    settings:
+      pinnedResources:
+        - kind: customresourcedefinition
+          name: prometheus.monitoring.coreos.com
+          displayName: Prometheus
+          namespaced: true
+        - kind: customresourcedefinition
+          name: servicemonitors.monitoring.coreos.com
+          displayName: Service Monitor
+          namespaced: true
+        - kind: customresourcedefinition
+          name: alertmanagers.monitoring.coreos.com
+          displayName: Alert Manager
+          namespaced: true
+  ```
+  
+  Each pinned resource requires:
+  - `kind`: Must be `customresourcedefinition`
+  - `name`: Fully qualified name of the CRD
+  - `displayName`: Name shown in the navigation menu
+  - `namespaced`: Whether the CRD is namespaced
+</ParamField>
+
+## How Settings are Applied
+
+Settings are stored in a Kubernetes ConfigMap and read by the Web module at startup. The ConfigMap structure:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubernetes-dashboard-settings
+  namespace: kubernetes-dashboard
+data:
+  settings: '{"clusterName":"Production","itemsPerPage":20}'
+  pinnedResources: '[{"kind":"customresourcedefinition","name":"..."}]'
+```
+
+The Web module reads this ConfigMap using the `--settings-config-map-name` argument (default: `kubernetes-dashboard-settings`).
+
+## Example Configurations
+
+### Production Cluster with Limited Permissions
+
+```yaml
+app:
+  settings:
+    global:
+      clusterName: "Production Cluster"
+      itemsPerPage: 15
+      resourceAutoRefreshTimeInterval: 30  # Reduced frequency
+      hideAllNamespaces: true  # Prevent OOM in large cluster
+      defaultNamespace: production
+      namespaceFallbackList:
+        - production
+        - staging
+        - default
+      disableAccessDeniedNotifications: true
+```
+
+### Development Cluster with Enhanced Monitoring
+
+```yaml
+app:
+  settings:
+    global:
+      clusterName: "Dev Cluster"
+      itemsPerPage: 50
+      labelsLimit: 10
+      resourceAutoRefreshTimeInterval: 5
+      logsAutoRefreshTimeInterval: 3
+    pinnedResources:
+      - kind: customresourcedefinition
+        name: prometheus.monitoring.coreos.com
+        displayName: Prometheus
+        namespaced: true
+      - kind: customresourcedefinition
+        name: servicemonitors.monitoring.coreos.com
+        displayName: Service Monitors
+        namespaced: true
+      - kind: customresourcedefinition
+        name: certificates.cert-manager.io
+        displayName: Certificates
+        namespaced: true
+      - kind: customresourcedefinition
+        name: issuers.cert-manager.io
+        displayName: Issuers
+        namespaced: true
+```
+
+### Large Enterprise Cluster
+
+```yaml
+app:
+  settings:
+    global:
+      clusterName: "Enterprise Production"
+      itemsPerPage: 20
+      labelsLimit: 5
+      resourceAutoRefreshTimeInterval: 60  # 1 minute for large cluster
+      logsAutoRefreshTimeInterval: 10
+      hideAllNamespaces: true  # Critical for large clusters
+      defaultNamespace: monitoring
+      disableAccessDeniedNotifications: true
+      namespaceFallbackList:
+        - monitoring
+        - production
+        - staging
+        - development
+```
+
+## Updating Settings at Runtime
+
+While settings are typically configured via Helm values, you can also update the ConfigMap directly:
+
+```bash
+# Edit the settings ConfigMap
+kubectl edit configmap kubernetes-dashboard-settings -n kubernetes-dashboard
+
+# Restart the web pods to apply changes
+kubectl rollout restart deployment kubernetes-dashboard-web -n kubernetes-dashboard
+```
+
+<Warning>
+  Settings changes via direct ConfigMap edits will be overwritten on the next Helm upgrade. Always update Helm values for persistent changes.
+</Warning>
+
+## Performance Considerations
+
+### Auto-Refresh Intervals
+
+- **Small clusters (less than 50 nodes)**: Default values work well
+- **Medium clusters (50-200 nodes)**: Increase `resourceAutoRefreshTimeInterval` to 30-60 seconds
+- **Large clusters (more than 200 nodes)**: Increase to 60-120 seconds and enable `hideAllNamespaces`
+
+### Items Per Page
+
+- Higher values reduce pagination but increase memory usage
+- In large clusters, keep this at 10-20 to prevent browser performance issues
+
+### All Namespaces Option
+
+In clusters with many namespaces (>100) and resources (>10,000 pods), selecting "All namespaces" can:
+- Cause browser Out Of Memory errors
+- Overload the API server
+- Make the Dashboard unresponsive
+
+**Solution**: Set `hideAllNamespaces: true` and provide a `namespaceFallbackList`.
+
+## Related Configuration
+
+- [Arguments Reference](/configuration/arguments) - Web module arguments including `--system-banner`
+- [Helm Values Reference](/configuration/helm-values) - Complete Helm values documentation
+- [Security Configuration](/configuration/security) - RBAC and access control settings

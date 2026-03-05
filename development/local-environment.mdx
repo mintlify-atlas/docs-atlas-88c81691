@@ -1,0 +1,205 @@
+---
+title: Local Development Environment
+description: Setting up your local development environment for Kubernetes Dashboard
+---
+
+## System Requirements
+
+Before setting up the local development environment, ensure you have the following software installed and added to your system PATH.
+
+### Required Software
+
+<AccordionGroup>
+  <Accordion title="Docker">
+    Docker is required for building and running containers.
+    
+    **Installation:** [Docker Installation Guide](https://docs.docker.com/engine/install/)
+    
+    Verify installation:
+    ```bash
+    docker --version
+    ```
+  </Accordion>
+
+  <Accordion title="Go">
+    Go is required for building the backend modules.
+    
+    **Required Version:** 1.24.0 or higher
+    
+    **Installation:** [Download Go](https://golang.org/dl/)
+    
+    **Version Reference:** Check [modules/go.work](~/workspace/source/modules/go.work:1) for the exact required version
+    
+    Verify installation:
+    ```bash
+    go version
+    ```
+  </Accordion>
+
+  <Accordion title="Node.js">
+    Node.js is required for the web frontend development.
+    
+    **Required Version:** 18.14.0 or higher
+    
+    **Installation:** [Node.js Downloads](https://nodejs.org/en/download)
+    
+    **Version Reference:** Check [modules/web/package.json](~/workspace/source/modules/web/package.json:11) for the exact required version
+    
+    Verify installation:
+    ```bash
+    node --version
+    ```
+  </Accordion>
+
+  <Accordion title="Yarn">
+    Yarn is the package manager used for JavaScript dependencies.
+    
+    **Required Version:** 3.3.0
+    
+    **Installation:** [Yarn Installation Guide](https://yarnpkg.com/getting-started/install)
+    
+    **Version Reference:** Check [modules/web/.yarnrc.yml](~/workspace/source/modules/web/.yarnrc.yml:11) for the exact required version
+    
+    Verify installation:
+    ```bash
+    yarn --version
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Initial Setup
+
+After cloning the repository, follow these steps to set up your development environment:
+
+### 1. Install Web Dependencies
+
+Navigate to the web module and install JavaScript dependencies:
+
+```bash
+cd modules/web && yarn
+```
+
+This will install all the dependencies defined in [package.json](~/workspace/source/modules/web/package.json:1).
+
+### 2. Install Development Tools
+
+Install required development tools:
+
+```bash
+make tools
+```
+
+This will install additional tools needed for development, including linters and code quality tools.
+
+## Development Workflows
+
+### Starting Development Server
+
+The primary way to run the dashboard during development is using the `serve` target:
+
+```bash
+make serve
+```
+
+This command will:
+- Ensure all required tools are installed
+- Clean up temporary directories
+- Create a local kind cluster (if not already created)
+- Install metrics-server in the cluster
+- Build and start all modules using Docker Compose
+- Make the dashboard available at **http://localhost:8080**
+
+<Note>
+  The development server uses hot-reloading for the frontend, so changes to the code will be automatically reflected.
+</Note>
+
+### Port Requirements
+
+Make sure the following ports are free on your localhost:
+
+| Port | Service | Used By |
+|------|---------|----------|
+| 8080 | Web HTTP | Development server (`make serve`) |
+| 8443 | Gateway HTTPS | Production server (`make run`) |
+| 443 | HTTPS | Helm installation (`make helm`) |
+
+### Running Production Mode
+
+To test the production build locally:
+
+```bash
+make run
+```
+
+This will:
+- Build production-ready Docker images
+- Start the dashboard with production configuration
+- Make the dashboard available at:
+  - **HTTPS:** https://localhost:8443
+  - **HTTP:** http://localhost:8080
+
+## Dependency Management
+
+### Go Dependencies
+
+The project uses [go mod](https://github.com/golang/go/wiki/Modules) to manage Go dependencies.
+
+**Best Practices:**
+- Use only official releases
+- Avoid using specific or latest commits
+- Run `go mod tidy` before committing changes to remove unused dependencies
+
+### JavaScript Dependencies
+
+The project uses [Yarn](https://yarnpkg.com/) to manage JavaScript dependencies.
+
+**Best Practices:**
+- All dependencies are tracked in `modules/web/package.json`
+- Lock file (`yarn.lock`) ensures consistent installations
+- The project uses Yarn 3.3.0 with node-modules linker
+
+### Automated Updates
+
+The project uses [Dependabot](https://github.com/dependabot) to automate dependency updates, ensuring security patches and updates are applied regularly.
+
+## Development Tools
+
+The project includes several tools to ensure code quality:
+
+### Linters
+
+- **golangci-lint** - Go code linting
+- **eslint** - TypeScript/JavaScript linting
+- **stylelint** - CSS/SCSS linting
+- **prettier** - Code formatting
+
+### Running Checks
+
+Run all checks before submitting a pull request:
+
+```bash
+make check
+```
+
+This will run all available checks across all modules.
+
+### Auto-fixing Issues
+
+Many linting issues can be automatically fixed:
+
+```bash
+make fix
+```
+
+This will run auto-fix scripts across all modules.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Building" icon="hammer" href="./building">
+    Learn how to build Docker images and production artifacts
+  </Card>
+  <Card title="Testing" icon="vial" href="./testing">
+    Run tests and ensure code quality
+  </Card>
+</CardGroup>

@@ -1,0 +1,228 @@
+---
+title: Authentication
+description: Learn how to authenticate with Kubernetes Dashboard using bearer tokens and service accounts
+---
+
+Kubernetes Dashboard supports multiple authentication methods to securely access your cluster resources. This guide covers the supported authentication mechanisms and how to configure them.
+
+## Overview
+
+Kubernetes Dashboard acts as a proxy and passes all authentication information to the Kubernetes API server. Authorization is handled by Kubernetes itself, and Dashboard displays appropriate warnings if access is forbidden.
+
+<Info>
+Authentication is required to access Dashboard when deployed with the default configuration. The login view is enabled by default and exposed via the gateway.
+</Info>
+
+## Authentication Methods
+
+Dashboard supports two primary authentication methods:
+
+### Bearer Token
+
+The recommended method for authenticating with Dashboard. Every Kubernetes Service Account has a Secret with a valid Bearer Token that can be used for login.
+
+**Creating a token:**
+
+```bash
+kubectl -n kubernetes-dashboard create token admin-user
+```
+
+This generates a short-lived token that you can paste into the Dashboard login screen.
+
+**Creating a long-lived token:**
+
+For persistent access, create a Secret bound to a Service Account:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/service-account.name: "admin-user"
+type: kubernetes.io/service-account-token
+```
+
+Retrieve the token:
+
+```bash
+kubectl get secret admin-user -n kubernetes-dashboard -o jsonpath="{.data.token}" | base64 -d
+```
+
+### Authorization Header
+
+For advanced use cases, you can pass an authorization header with every request:
+
+```
+Authorization: Bearer <token>
+```
+
+This method is useful when:
+- Configuring a reverse proxy in front of Dashboard
+- Integrating with external identity providers
+- Implementing custom authentication flows
+
+<Warning>
+**Security Considerations:**
+- Authorization header only works over HTTPS to prevent token interception
+- Does not work when accessing Dashboard through `kubectl proxy`
+- Plain HTTP traffic is vulnerable to man-in-the-middle attacks
+- Token login is only allowed over HTTPS connections
+</Warning>
+
+## Creating a Service Account
+
+To create a user with admin permissions:
+
+### Step 1: Create Service Account
+
+Create a file named `dashboard-adminuser.yaml`:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+```
+
+Apply the configuration:
+
+```bash
+kubectl apply -f dashboard-adminuser.yaml
+```
+
+### Step 2: Create ClusterRoleBinding
+
+Grant cluster-admin privileges to the service account:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+```
+
+Apply the binding:
+
+```bash
+kubectl apply -f dashboard-adminuser.yaml
+```
+
+### Step 3: Get Bearer Token
+
+Generate a token for the service account:
+
+```bash
+kubectl -n kubernetes-dashboard create token admin-user
+```
+
+The output will be a JWT token like:
+
+```
+eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50...
+```
+
+## Login Process
+
+The Dashboard authentication flow (`modules/auth/pkg/routes/login/login.go:25-39`):
+
+```go
+func login(spec *v1.LoginRequest, request *http.Request) (*v1.LoginResponse, int, error) {
+    ensureAuthorizationHeader(spec, request)
+    
+    k8sClient, err := client.Client(request)
+    if err != nil {
+        return nil, http.StatusInternalServerError, err
+    }
+    
+    if _, err = k8sClient.Discovery().ServerVersion(); err != nil {
+        code, err := errors.HandleError(err)
+        return nil, code, err
+    }
+    
+    return &v1.LoginResponse{Token: spec.Token}, http.StatusOK, nil
+}
+```
+
+<Steps>
+  <Step title="Navigate to Dashboard">
+    Open the Dashboard URL in your browser. You'll see the login screen.
+  </Step>
+  
+  <Step title="Enter Token">
+    Paste your bearer token into the "Enter token" field.
+  </Step>
+  
+  <Step title="Sign In">
+    Click "Sign in" to authenticate. Dashboard validates the token against the Kubernetes API server.
+  </Step>
+</Steps>
+
+## Default Permissions
+
+Dashboard components have minimal default privileges:
+
+### Web Container
+- `get` and `update` permissions for the settings ConfigMap
+- Default ConfigMap name: `kubernetes-dashboard-settings`
+- Default namespace: `kubernetes-dashboard`
+
+### API Container
+- `get` permission for `services/proxy` to gather metrics
+- Default service: `kubernetes-dashboard-metrics-scraper`
+
+### Metrics Scraper
+- `get`, `list`, `watch` permissions for `metrics.k8s.io` API
+
+## RBAC Configuration
+
+For fine-grained access control, use Kubernetes RBAC:
+
+<Tip>
+**Best Practices:**
+- Create service accounts with minimal required permissions
+- Use Role and RoleBinding for namespace-scoped access
+- Use ClusterRole and ClusterRoleBinding for cluster-wide access
+- Regularly rotate service account tokens
+- Audit authentication logs for suspicious activity
+</Tip>
+
+Learn more about Kubernetes RBAC:
+- [Kubernetes Authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/)
+- [Kubernetes Authorization](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)
+- [Service Account Permissions](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#service-account-permissions)
+
+## Cleanup
+
+To remove the admin service account:
+
+```bash
+kubectl -n kubernetes-dashboard delete serviceaccount admin-user
+kubectl -n kubernetes-dashboard delete clusterrolebinding admin-user
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Token login fails with 'invalid token' error">
+    Ensure you're accessing Dashboard over HTTPS. Token login is not allowed over HTTP connections.
+  </Accordion>
+  
+  <Accordion title="Access denied after successful login">
+    Check the RBAC permissions for your service account. The account needs appropriate ClusterRole or Role bindings.
+  </Accordion>
+  
+  <Accordion title="Authorization header not working">
+    Verify you're not accessing Dashboard through `kubectl proxy`. Direct HTTPS access is required for authorization headers.
+  </Accordion>
+</AccordionGroup>

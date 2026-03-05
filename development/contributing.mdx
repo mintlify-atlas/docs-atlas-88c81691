@@ -1,0 +1,315 @@
+---
+title: Contributing
+description: Guidelines for contributing to Kubernetes Dashboard
+---
+
+## Welcome
+
+Welcome to Kubernetes Dashboard! We're excited about the prospect of you joining our [community](https://github.com/kubernetes/community).
+
+The Kubernetes community abides by the CNCF [code of conduct](https://github.com/kubernetes/dashboard/blob/master/code-of-conduct.md):
+
+> As contributors and maintainers of this project, and in the interest of fostering an open and welcoming community, we pledge to respect all people who contribute through reporting issues, posting feature requests, updating documentation, submitting pull requests or patches, and other activities.
+
+## Getting Started
+
+Before contributing, familiarize yourself with the project:
+
+<CardGroup cols={2}>
+  <Card title="Project Documentation" icon="book" href="https://github.com/kubernetes/dashboard/tree/master/docs">
+    Read the project documentation
+  </Card>
+  <Card title="Kubernetes Dashboard Guide" icon="kubernetes" href="https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/">
+    Official Kubernetes documentation
+  </Card>
+</CardGroup>
+
+## Required Reading
+
+Before contributing, please review:
+
+### Contributor License Agreement
+
+Kubernetes projects require that you sign a Contributor License Agreement (CLA) before we can accept your pull requests.
+
+<Card title="Sign the CLA" icon="file-signature" href="https://git.k8s.io/community/CLA.md">
+  Review and sign the Contributor License Agreement
+</Card>
+
+### Contributor Guides
+
+<CardGroup cols={2}>
+  <Card title="Kubernetes Contributor Guide" icon="book-open" href="http://git.k8s.io/community/contributors/guide">
+    Main contributor documentation
+  </Card>
+  <Card title="Contributor Cheat Sheet" icon="list-check" href="https://git.k8s.io/community/contributors/guide/contributor-cheatsheet/README.md">
+    Common resources for developers
+  </Card>
+</CardGroup>
+
+## Contribution Workflow
+
+### 1. Submit an Issue
+
+Before starting work:
+
+1. **Search existing issues** to avoid duplicates
+2. **Create a new issue** describing your proposed change
+3. **Wait for feedback** from maintainers
+
+<Note>
+  For bug reports, include steps to reproduce, expected behavior, and actual behavior.
+</Note>
+
+### 2. Fork and Clone
+
+Once your proposal is approved:
+
+```bash
+# Fork the repository on GitHub, then clone your fork
+git clone https://github.com/YOUR_USERNAME/dashboard.git
+cd dashboard
+
+# Add upstream remote
+git remote add upstream https://github.com/kubernetes/dashboard.git
+```
+
+### 3. Create a Branch
+
+Create a feature branch for your changes:
+
+```bash
+git checkout -b feature/my-feature
+```
+
+### 4. Make Changes
+
+Make your changes following the project's code conventions:
+
+#### Go Code Conventions
+
+- Follow [Effective Go](https://golang.org/doc/effective_go.html) guidelines
+- Code quality is monitored via [Go Report Card](https://goreportcard.com/report/github.com/kubernetes/dashboard)
+- Run `go mod tidy` to clean up dependencies
+
+#### Angular Code Conventions
+
+- Follow [Angular Style Guide](https://angular.io/guide/styleguide)
+- Follow [Material Design Guidelines](https://material.io/guidelines/)
+
+### 5. Test Your Changes
+
+Before submitting, ensure all tests pass:
+
+```bash
+# Run all tests
+make test
+
+# Run all checks (linting, formatting, etc.)
+make check
+
+# Fix auto-fixable issues
+make fix
+```
+
+See the [Testing guide](./testing) for detailed testing instructions.
+
+### 6. Commit Your Changes
+
+Write clear, descriptive commit messages:
+
+```bash
+git add .
+git commit -m "Add feature: brief description of changes"
+```
+
+**Commit Message Guidelines:**
+- Use present tense ("Add feature" not "Added feature")
+- Use imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Limit first line to 72 characters
+- Reference issues and pull requests liberally
+
+### 7. Push and Create Pull Request
+
+```bash
+# Push to your fork
+git push origin feature/my-feature
+```
+
+Then create a pull request on GitHub.
+
+## Pull Request Process
+
+### Review Process
+
+All submissions, including submissions by project members, require review. We use GitHub pull requests for this purpose.
+
+**What to expect:**
+
+1. **Automated checks** run on your PR
+2. **Maintainers review** your code
+3. **Feedback is provided** for improvements
+4. **Approval required** before merging
+
+### Pre-Submission Checklist
+
+Before submitting your PR, ensure:
+
+- [ ] All tests pass locally (`make test`)
+- [ ] All checks pass locally (`make check`)
+- [ ] Code follows project conventions
+- [ ] License headers are present (`make check-license`)
+- [ ] Commit messages are clear and descriptive
+- [ ] PR description explains the change
+- [ ] Issue is referenced in PR description
+
+### Required Checks
+
+Your PR must pass the following automated checks:
+
+<AccordionGroup>
+  <Accordion title="Unit Tests">
+    All unit tests must pass across all modules.
+    
+    **Run locally:**
+    ```bash
+    make test
+    ```
+  </Accordion>
+
+  <Accordion title="Linting">
+    Code must pass all linting checks:
+    - golangci-lint for Go
+    - eslint for TypeScript/JavaScript
+    - stylelint for CSS/SCSS
+    - prettier for formatting
+    
+    **Run locally:**
+    ```bash
+    make check
+    ```
+  </Accordion>
+
+  <Accordion title="License Headers">
+    All source files must have proper license headers.
+    
+    **Check locally:**
+    ```bash
+    make check-license
+    ```
+    
+    **Fix automatically:**
+    ```bash
+    make fix-license
+    ```
+  </Accordion>
+
+  <Accordion title="Build Verification">
+    The project must build successfully.
+    
+    **Run locally:**
+    ```bash
+    make build
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Development Best Practices
+
+### Dependency Management
+
+#### Go Dependencies
+
+- Use only official releases
+- Avoid using specific commits or `latest`
+- Run `go mod tidy` before committing
+- Dependencies are managed with [go mod](https://github.com/golang/go/wiki/Modules)
+
+#### JavaScript Dependencies
+
+- Use Yarn for package management
+- Update `package.json` and commit `yarn.lock`
+- Avoid suspicious or unknown dependencies
+
+### Security
+
+- Never commit sensitive information (credentials, tokens, etc.)
+- Keep dependencies updated
+- Follow security best practices
+- Report security issues privately to maintainers
+
+### Code Quality Tools
+
+The project uses several tools to maintain code quality:
+
+| Tool | Purpose | Documentation |
+|------|---------|---------------|
+| **golangci-lint** | Go linting | [golangci-lint](https://github.com/golangci/golangci-lint) |
+| **eslint** | JS/TS linting | [eslint](https://eslint.org) |
+| **stylelint** | CSS/SCSS linting | [stylelint](https://github.com/stylelint/stylelint) |
+| **prettier** | Code formatting | [prettier](https://prettier.io/) |
+
+## Communication Channels
+
+Get in touch with the community:
+
+<CardGroup cols={2}>
+  <Card title="Slack Channel" icon="slack" href="https://kubernetes.slack.com/messages/sig-ui">
+    Join #sig-ui on Kubernetes Slack
+  </Card>
+  <Card title="Mailing List" icon="envelope" href="https://groups.google.com/forum/#!forum/kubernetes-sig-ui">
+    Subscribe to kubernetes-sig-ui mailing list
+  </Card>
+</CardGroup>
+
+## Mentorship
+
+New to Kubernetes or open source?
+
+<Card title="Mentoring Initiatives" icon="user-group" href="https://git.k8s.io/community/mentoring">
+  We have diverse mentorship programs available that are always looking for volunteers!
+</Card>
+
+## Release Process
+
+The project follows [semver](https://semver.org/) versioning scheme.
+
+### Module Releases
+
+Each module has its own releases:
+- `api/v1.0.0`
+- `web/v2.4.5`
+- `auth/v1.2.3`
+- etc.
+
+### Application Releases
+
+Application releases are created via Helm chart updates:
+- Tag format: `v3.0.0`
+- Includes detailed release notes
+- Includes compatibility matrix
+- Includes upgrade instructions
+
+## Making Your First Contribution
+
+Look for issues labeled `good first issue` or `help wanted`:
+
+```bash
+# Search for beginner-friendly issues
+https://github.com/kubernetes/dashboard/labels/good%20first%20issue
+```
+
+<Note>
+  Don't hesitate to ask questions! The community is here to help.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="./getting-started">
+    Set up your development environment
+  </Card>
+  <Card title="Testing" icon="vial" href="./testing">
+    Learn how to run tests
+  </Card>
+</CardGroup>

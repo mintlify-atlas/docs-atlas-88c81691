@@ -1,0 +1,666 @@
+---
+title: 'Resource Endpoints'
+description: 'Complete reference for Kubernetes resource API endpoints'
+---
+
+## Overview
+
+The Dashboard API provides comprehensive endpoints for managing and querying Kubernetes resources. All resource endpoints follow RESTful conventions and support common query parameters for filtering, sorting, and pagination.
+
+## Workload Resources
+
+### Pods
+
+<ParamField path="GET /api/v1/pod" type="endpoint">
+  List all Pods from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/pod/{namespace}" type="endpoint">
+  List Pods in a specific namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/pod/{namespace}/{pod}" type="endpoint">
+  Get detailed information about a specific Pod
+</ParamField>
+
+<ParamField path="GET /api/v1/pod/{namespace}/{pod}/container" type="endpoint">
+  List containers in a Pod
+</ParamField>
+
+<ParamField path="GET /api/v1/pod/{namespace}/{pod}/event" type="endpoint">
+  Get events related to a Pod
+</ParamField>
+
+<ParamField path="GET /api/v1/pod/{namespace}/{pod}/persistentvolumeclaim" type="endpoint">
+  List PersistentVolumeClaims used by a Pod
+</ParamField>
+
+### Deployments
+
+<ParamField path="GET /api/v1/deployment" type="endpoint">
+  List all Deployments from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/deployment/{namespace}" type="endpoint">
+  List Deployments in a specific namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/deployment/{namespace}/{deployment}" type="endpoint">
+  Get detailed information about a Deployment
+</ParamField>
+
+<ParamField path="GET /api/v1/deployment/{namespace}/{deployment}/event" type="endpoint">
+  Get events for a Deployment
+</ParamField>
+
+<ParamField path="GET /api/v1/deployment/{namespace}/{deployment}/oldreplicaset" type="endpoint">
+  Get old ReplicaSets for a Deployment
+</ParamField>
+
+<ParamField path="GET /api/v1/deployment/{namespace}/{deployment}/newreplicaset" type="endpoint">
+  Get the new ReplicaSet for a Deployment
+</ParamField>
+
+<ParamField path="PUT /api/v1/deployment/{namespace}/{deployment}/pause" type="endpoint">
+  Pause a Deployment
+</ParamField>
+
+<ParamField path="PUT /api/v1/deployment/{namespace}/{deployment}/resume" type="endpoint">
+  Resume a paused Deployment
+</ParamField>
+
+<ParamField path="PUT /api/v1/deployment/{namespace}/{deployment}/restart" type="endpoint">
+  Rollout restart a Deployment
+</ParamField>
+
+<ParamField path="PUT /api/v1/deployment/{namespace}/{deployment}/rollback" type="endpoint">
+  Rollback a Deployment to a previous revision
+</ParamField>
+
+### ReplicaSets
+
+<ParamField path="GET /api/v1/replicaset" type="endpoint">
+  List all ReplicaSets from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/replicaset/{namespace}" type="endpoint">
+  List ReplicaSets in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/replicaset/{namespace}/{replicaSet}" type="endpoint">
+  Get ReplicaSet details
+</ParamField>
+
+<ParamField path="GET /api/v1/replicaset/{namespace}/{replicaSet}/pod" type="endpoint">
+  List Pods for a ReplicaSet
+</ParamField>
+
+<ParamField path="GET /api/v1/replicaset/{namespace}/{replicaSet}/service" type="endpoint">
+  List Services for a ReplicaSet
+</ParamField>
+
+<ParamField path="GET /api/v1/replicaset/{namespace}/{replicaSet}/event" type="endpoint">
+  Get events for a ReplicaSet
+</ParamField>
+
+### StatefulSets
+
+<ParamField path="GET /api/v1/statefulset" type="endpoint">
+  List all StatefulSets from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/statefulset/{namespace}" type="endpoint">
+  List StatefulSets in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/statefulset/{namespace}/{statefulset}" type="endpoint">
+  Get StatefulSet details
+</ParamField>
+
+<ParamField path="GET /api/v1/statefulset/{namespace}/{statefulset}/pod" type="endpoint">
+  List Pods for a StatefulSet
+</ParamField>
+
+<ParamField path="GET /api/v1/statefulset/{namespace}/{statefulset}/event" type="endpoint">
+  Get events for a StatefulSet
+</ParamField>
+
+<ParamField path="PUT /api/v1/statefulset/{namespace}/{statefulset}/restart" type="endpoint">
+  Rollout restart a StatefulSet
+</ParamField>
+
+### DaemonSets
+
+<ParamField path="GET /api/v1/daemonset" type="endpoint">
+  List all DaemonSets from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/daemonset/{namespace}" type="endpoint">
+  List DaemonSets in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/daemonset/{namespace}/{daemonSet}" type="endpoint">
+  Get DaemonSet details
+</ParamField>
+
+<ParamField path="GET /api/v1/daemonset/{namespace}/{daemonSet}/pod" type="endpoint">
+  List Pods for a DaemonSet
+</ParamField>
+
+<ParamField path="GET /api/v1/daemonset/{namespace}/{daemonSet}/service" type="endpoint">
+  List Services for a DaemonSet
+</ParamField>
+
+<ParamField path="GET /api/v1/daemonset/{namespace}/{daemonSet}/event" type="endpoint">
+  Get events for a DaemonSet
+</ParamField>
+
+<ParamField path="PUT /api/v1/daemonset/{namespace}/{daemonSet}/restart" type="endpoint">
+  Rollout restart a DaemonSet
+</ParamField>
+
+### Jobs
+
+<ParamField path="GET /api/v1/job" type="endpoint">
+  List all Jobs from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/job/{namespace}" type="endpoint">
+  List Jobs in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/job/{namespace}/{name}" type="endpoint">
+  Get Job details
+</ParamField>
+
+<ParamField path="GET /api/v1/job/{namespace}/{name}/pod" type="endpoint">
+  List Pods for a Job
+</ParamField>
+
+<ParamField path="GET /api/v1/job/{namespace}/{name}/event" type="endpoint">
+  Get events for a Job
+</ParamField>
+
+### CronJobs
+
+<ParamField path="GET /api/v1/cronjob" type="endpoint">
+  List all CronJobs from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/cronjob/{namespace}" type="endpoint">
+  List CronJobs in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/cronjob/{namespace}/{name}" type="endpoint">
+  Get CronJob details
+</ParamField>
+
+<ParamField path="GET /api/v1/cronjob/{namespace}/{name}/job" type="endpoint">
+  List Jobs for a CronJob
+</ParamField>
+
+<ParamField path="GET /api/v1/cronjob/{namespace}/{name}/event" type="endpoint">
+  Get events for a CronJob
+</ParamField>
+
+<ParamField path="PUT /api/v1/cronjob/{namespace}/{name}/trigger" type="endpoint">
+  Manually trigger a CronJob
+</ParamField>
+
+### ReplicationControllers
+
+<ParamField path="GET /api/v1/replicationcontroller" type="endpoint">
+  List all ReplicationControllers from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/replicationcontroller/{namespace}" type="endpoint">
+  List ReplicationControllers in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/replicationcontroller/{namespace}/{replicationController}" type="endpoint">
+  Get ReplicationController details
+</ParamField>
+
+<ParamField path="POST /api/v1/replicationcontroller/{namespace}/{replicationController}/update/pod" type="endpoint">
+  Update replica count for a ReplicationController
+</ParamField>
+
+## Service Resources
+
+### Services
+
+<ParamField path="GET /api/v1/service" type="endpoint">
+  List all Services from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/service/{namespace}" type="endpoint">
+  List Services in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/service/{namespace}/{service}" type="endpoint">
+  Get Service details
+</ParamField>
+
+<ParamField path="GET /api/v1/service/{namespace}/{service}/event" type="endpoint">
+  Get events for a Service
+</ParamField>
+
+<ParamField path="GET /api/v1/service/{namespace}/{service}/pod" type="endpoint">
+  List Pods behind a Service
+</ParamField>
+
+<ParamField path="GET /api/v1/service/{namespace}/{service}/ingress" type="endpoint">
+  List Ingresses for a Service
+</ParamField>
+
+### Ingress
+
+<ParamField path="GET /api/v1/ingress" type="endpoint">
+  List all Ingresses from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/ingress/{namespace}" type="endpoint">
+  List Ingresses in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/ingress/{namespace}/{name}" type="endpoint">
+  Get Ingress details
+</ParamField>
+
+<ParamField path="GET /api/v1/ingress/{namespace}/{ingress}/event" type="endpoint">
+  Get events for an Ingress
+</ParamField>
+
+### IngressClass
+
+<ParamField path="GET /api/v1/ingressclass" type="endpoint">
+  List all IngressClasses
+</ParamField>
+
+<ParamField path="GET /api/v1/ingressclass/{ingressclass}" type="endpoint">
+  Get IngressClass details
+</ParamField>
+
+## Configuration Resources
+
+### ConfigMaps
+
+<ParamField path="GET /api/v1/configmap" type="endpoint">
+  List all ConfigMaps from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/configmap/{namespace}" type="endpoint">
+  List ConfigMaps in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/configmap/{namespace}/{configmap}" type="endpoint">
+  Get ConfigMap details
+</ParamField>
+
+### Secrets
+
+<ParamField path="GET /api/v1/secret" type="endpoint">
+  List all Secrets from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/secret/{namespace}" type="endpoint">
+  List Secrets in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/secret/{namespace}/{name}" type="endpoint">
+  Get Secret details
+</ParamField>
+
+<ParamField path="POST /api/v1/secret" type="endpoint">
+  Create an ImagePullSecret
+</ParamField>
+
+## Storage Resources
+
+### PersistentVolumes
+
+<ParamField path="GET /api/v1/persistentvolume" type="endpoint">
+  List all PersistentVolumes
+</ParamField>
+
+<ParamField path="GET /api/v1/persistentvolume/{persistentvolume}" type="endpoint">
+  Get PersistentVolume details
+</ParamField>
+
+### PersistentVolumeClaims
+
+<ParamField path="GET /api/v1/persistentvolumeclaim" type="endpoint">
+  List all PersistentVolumeClaims
+</ParamField>
+
+<ParamField path="GET /api/v1/persistentvolumeclaim/{namespace}" type="endpoint">
+  List PersistentVolumeClaims in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/persistentvolumeclaim/{namespace}/{name}" type="endpoint">
+  Get PersistentVolumeClaim details
+</ParamField>
+
+### StorageClass
+
+<ParamField path="GET /api/v1/storageclass" type="endpoint">
+  List all StorageClasses
+</ParamField>
+
+<ParamField path="GET /api/v1/storageclass/{storageclass}" type="endpoint">
+  Get StorageClass details
+</ParamField>
+
+<ParamField path="GET /api/v1/storageclass/{storageclass}/persistentvolume" type="endpoint">
+  List PersistentVolumes for a StorageClass
+</ParamField>
+
+## Cluster Resources
+
+### Namespaces
+
+<ParamField path="GET /api/v1/namespace" type="endpoint">
+  List all Namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/namespace/{name}" type="endpoint">
+  Get Namespace details
+</ParamField>
+
+<ParamField path="POST /api/v1/namespace" type="endpoint">
+  Create a new Namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/namespace/{name}/event" type="endpoint">
+  Get events for a Namespace
+</ParamField>
+
+### Nodes
+
+<ParamField path="GET /api/v1/node" type="endpoint">
+  List all Nodes
+</ParamField>
+
+<ParamField path="GET /api/v1/node/{name}" type="endpoint">
+  Get Node details
+</ParamField>
+
+<ParamField path="GET /api/v1/node/{name}/event" type="endpoint">
+  Get events for a Node
+</ParamField>
+
+<ParamField path="GET /api/v1/node/{name}/pod" type="endpoint">
+  List Pods running on a Node
+</ParamField>
+
+<ParamField path="PUT /api/v1/node/{name}/drain" type="endpoint">
+  Drain a Node
+</ParamField>
+
+### Events
+
+<ParamField path="GET /api/v1/event" type="endpoint">
+  List all Events from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/event/{namespace}" type="endpoint">
+  List Events in a namespace
+</ParamField>
+
+## RBAC Resources
+
+### Roles
+
+<ParamField path="GET /api/v1/role" type="endpoint">
+  List all Roles from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/role/{namespace}" type="endpoint">
+  List Roles in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/role/{namespace}/{name}" type="endpoint">
+  Get Role details
+</ParamField>
+
+### RoleBindings
+
+<ParamField path="GET /api/v1/rolebinding" type="endpoint">
+  List all RoleBindings from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/rolebinding/{namespace}" type="endpoint">
+  List RoleBindings in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/rolebinding/{namespace}/{name}" type="endpoint">
+  Get RoleBinding details
+</ParamField>
+
+### ClusterRoles
+
+<ParamField path="GET /api/v1/clusterrole" type="endpoint">
+  List all ClusterRoles
+</ParamField>
+
+<ParamField path="GET /api/v1/clusterrole/{name}" type="endpoint">
+  Get ClusterRole details
+</ParamField>
+
+### ClusterRoleBindings
+
+<ParamField path="GET /api/v1/clusterrolebinding" type="endpoint">
+  List all ClusterRoleBindings
+</ParamField>
+
+<ParamField path="GET /api/v1/clusterrolebinding/{name}" type="endpoint">
+  Get ClusterRoleBinding details
+</ParamField>
+
+### ServiceAccounts
+
+<ParamField path="GET /api/v1/serviceaccount" type="endpoint">
+  List all ServiceAccounts from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/serviceaccount/{namespace}" type="endpoint">
+  List ServiceAccounts in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/serviceaccount/{namespace}/{serviceaccount}" type="endpoint">
+  Get ServiceAccount details
+</ParamField>
+
+<ParamField path="GET /api/v1/serviceaccount/{namespace}/{serviceaccount}/secret" type="endpoint">
+  List Secrets for a ServiceAccount
+</ParamField>
+
+<ParamField path="GET /api/v1/serviceaccount/{namespace}/{serviceaccount}/imagepullsecret" type="endpoint">
+  List ImagePullSecrets for a ServiceAccount
+</ParamField>
+
+## Policy Resources
+
+### NetworkPolicies
+
+<ParamField path="GET /api/v1/networkpolicy" type="endpoint">
+  List all NetworkPolicies from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/networkpolicy/{namespace}" type="endpoint">
+  List NetworkPolicies in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/networkpolicy/{namespace}/{networkpolicy}" type="endpoint">
+  Get NetworkPolicy details
+</ParamField>
+
+### PodDisruptionBudgets
+
+<ParamField path="GET /api/v1/poddisruptionbudget" type="endpoint">
+  List all PodDisruptionBudgets
+</ParamField>
+
+<ParamField path="GET /api/v1/poddisruptionbudget/{namespace}" type="endpoint">
+  List PodDisruptionBudgets in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/poddisruptionbudget/{namespace}/{name}" type="endpoint">
+  Get PodDisruptionBudget details
+</ParamField>
+
+### HorizontalPodAutoscalers
+
+<ParamField path="GET /api/v1/horizontalpodautoscaler" type="endpoint">
+  List all HorizontalPodAutoscalers from all namespaces
+</ParamField>
+
+<ParamField path="GET /api/v1/horizontalpodautoscaler/{namespace}" type="endpoint">
+  List HorizontalPodAutoscalers in a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/horizontalpodautoscaler/{namespace}/{horizontalpodautoscaler}" type="endpoint">
+  Get HorizontalPodAutoscaler details
+</ParamField>
+
+<ParamField path="GET /api/v1/{kind}/{namespace}/{name}/horizontalpodautoscaler" type="endpoint">
+  List HorizontalPodAutoscalers for a specific resource
+</ParamField>
+
+## Custom Resources
+
+### CustomResourceDefinitions
+
+<ParamField path="GET /api/v1/crd" type="endpoint">
+  List all CustomResourceDefinitions
+</ParamField>
+
+<ParamField path="GET /api/v1/crd/{crd}" type="endpoint">
+  Get CustomResourceDefinition details
+</ParamField>
+
+<ParamField path="GET /api/v1/crd/{namespace}/{crd}/object" type="endpoint">
+  List custom resource objects
+</ParamField>
+
+<ParamField path="GET /api/v1/crd/{namespace}/{crd}/{object}" type="endpoint">
+  Get custom resource object details
+</ParamField>
+
+<ParamField path="GET /api/v1/crd/{namespace}/{crd}/{object}/event" type="endpoint">
+  Get events for a custom resource object
+</ParamField>
+
+## Generic Resource Operations
+
+### Raw Resource Access
+
+<ParamField path="GET /api/v1/_raw/{kind}/namespace/{namespace}/name/{name}" type="endpoint">
+  Get raw unstructured resource from a namespace
+</ParamField>
+
+<ParamField path="GET /api/v1/_raw/{kind}/name/{name}" type="endpoint">
+  Get raw unstructured non-namespaced resource
+</ParamField>
+
+<ParamField path="PUT /api/v1/_raw/{kind}/namespace/{namespace}/name/{name}" type="endpoint">
+  Create or update a namespaced resource
+</ParamField>
+
+<ParamField path="PUT /api/v1/_raw/{kind}/name/{name}" type="endpoint">
+  Create or update a non-namespaced resource
+</ParamField>
+
+<ParamField path="DELETE /api/v1/_raw/{kind}/namespace/{namespace}/name/{name}" type="endpoint">
+  Delete a namespaced resource
+  
+  **Query Parameters:**
+  - `deleteNow`: Override graceful delete and enforce immediate deletion
+  - `propagation`: Override default delete propagation policy
+</ParamField>
+
+<ParamField path="DELETE /api/v1/_raw/{kind}/name/{name}" type="endpoint">
+  Delete a non-namespaced resource
+</ParamField>
+
+### Scaling
+
+<ParamField path="GET /api/v1/scale/{kind}/{namespace}/{name}" type="endpoint">
+  Get replica count for a namespaced resource
+</ParamField>
+
+<ParamField path="GET /api/v1/scale/{kind}/{name}" type="endpoint">
+  Get replica count for a non-namespaced resource
+</ParamField>
+
+<ParamField path="PUT /api/v1/scale/{kind}/{namespace}/{name}" type="endpoint">
+  Scale a namespaced resource
+  
+  **Query Parameters:**
+  - `scaleBy`: Desired number of replicas
+</ParamField>
+
+<ParamField path="PUT /api/v1/scale/{kind}/{name}" type="endpoint">
+  Scale a non-namespaced resource
+</ParamField>
+
+## Deployment Operations
+
+### App Deployment
+
+<ParamField path="POST /api/v1/appdeployment" type="endpoint">
+  Deploy an application from deployment spec
+</ParamField>
+
+<ParamField path="POST /api/v1/appdeploymentfromfile" type="endpoint">
+  Deploy an application from YAML/JSON file
+</ParamField>
+
+<ParamField path="POST /api/v1/appdeployment/validate/name" type="endpoint">
+  Validate application name
+</ParamField>
+
+<ParamField path="POST /api/v1/appdeployment/validate/imagereference" type="endpoint">
+  Validate image reference
+</ParamField>
+
+<ParamField path="POST /api/v1/appdeployment/validate/protocol" type="endpoint">
+  Validate service protocol
+</ParamField>
+
+<ParamField path="GET /api/v1/appdeployment/protocols" type="endpoint">
+  Get available service protocols
+</ParamField>
+
+## Example: List Pods in a Namespace
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod/default?itemsPerPage=10&page=1' \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Accept: application/json'
+```
+
+### Response
+
+```json
+{
+  "listMeta": {
+    "totalItems": 25
+  },
+  "items": [
+    {
+      "objectMeta": {
+        "name": "nginx-deployment-66b6c48dd5-8xpkr",
+        "namespace": "default",
+        "creationTimestamp": "2026-03-01T10:30:00Z"
+      },
+      "typeMeta": {
+        "kind": "Pod"
+      },
+      "status": "Running",
+      "restartCount": 0
+    }
+  ]
+}
+```

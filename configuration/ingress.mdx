@@ -1,0 +1,510 @@
+---
+title: Ingress Configuration
+description: Configure Ingress resources, TLS certificates, and external access
+---
+
+Kubernetes Dashboard can be exposed externally using Kubernetes Ingress resources. The Helm chart supports automatic Ingress creation with TLS certificate management via cert-manager.
+
+## Enable Ingress
+
+<ParamField path="app.ingress.enabled" type="boolean" default="false">
+  Enable Ingress resource creation.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+  ```
+</ParamField>
+
+## Hosts Configuration
+
+<ParamField path="app.ingress.hosts" type="array" default='["localhost"]'>
+  List of hostnames for the Ingress resource.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      hosts:
+        - dashboard.example.com
+        - k8s-dashboard.company.internal
+  ```
+  
+  Default includes `localhost` for use with `kubectl port-forward`:
+  ```bash
+  kubectl port-forward -n kubernetes-dashboard service/kubernetes-dashboard-kong-proxy 8443:443
+  # Access at https://localhost:8443
+  ```
+  
+  Remove `localhost` when exposing Dashboard externally.
+</ParamField>
+
+## Ingress Class
+
+<ParamField path="app.ingress.ingressClassName" type="string" default="internal-nginx">
+  IngressClass to use for the Ingress resource.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      ingressClassName: nginx
+  ```
+  
+  Common values:
+  - `nginx` - For nginx-ingress-controller
+  - `traefik` - For Traefik
+  - `alb` - For AWS ALB Ingress Controller
+  - `gce` - For GCE Ingress Controller
+</ParamField>
+
+<ParamField path="app.ingress.useDefaultIngressClass" type="boolean" default="false">
+  Use the cluster's default IngressClass instead of specifying one.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      useDefaultIngressClass: true
+  ```
+  
+  When `true`, the `ingressClassName` field is omitted, and the cluster's default IngressClass is used.
+</ParamField>
+
+## Path Configuration
+
+<ParamField path="app.ingress.path" type="string" default="/">
+  URL path for accessing Dashboard.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      path: /
+  ```
+  
+  **Serving on a sub-path**:
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      path: /dashboard
+  ```
+  
+  When path is not `/`, a `nginx.ingress.kubernetes.io/rewrite-target: /$2` annotation is automatically added for proper routing.
+  
+  <Warning>
+    Ensure the configured path doesn't conflict with Kong gateway route configuration.
+  </Warning>
+</ParamField>
+
+<ParamField path="app.ingress.pathType" type="string" default="ImplementationSpecific">
+  Ingress path type.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      pathType: Prefix
+  ```
+  
+  Options:
+  - `Prefix` - Matches based on URL path prefix
+  - `Exact` - Exact path matching
+  - `ImplementationSpecific` - Interpretation depends on IngressClass
+  
+  See [Kubernetes Ingress documentation](https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types).
+</ParamField>
+
+## TLS Configuration
+
+<ParamField path="app.ingress.tls.enabled" type="boolean" default="true">
+  Enable TLS for Ingress.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      tls:
+        enabled: true
+  ```
+  
+  <Info>
+    TLS is highly recommended for production deployments to secure dashboard access.
+  </Info>
+</ParamField>
+
+<ParamField path="app.ingress.tls.secretName" type="string" default="">
+  Name of the TLS Secret containing certificate and key.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      tls:
+        enabled: true
+        secretName: dashboard-tls-cert
+  ```
+  
+  If empty (default), the secret name is auto-generated as `kubernetes-dashboard-certs`.
+  
+  The Secret must contain:
+  - `tls.crt` - TLS certificate
+  - `tls.key` - TLS private key
+</ParamField>
+
+## Cert-Manager Integration
+
+The chart integrates with cert-manager for automatic certificate management.
+
+<ParamField path="app.ingress.issuer.name" type="string" default="selfsigned">
+  Name of the cert-manager Issuer or ClusterIssuer.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      issuer:
+        name: letsencrypt-prod
+        scope: cluster
+      tls:
+        enabled: true
+  ```
+</ParamField>
+
+<ParamField path="app.ingress.issuer.scope" type="string" default="default">
+  Scope of the cert-manager issuer.
+  
+  ```yaml
+  app:
+    ingress:
+      issuer:
+        name: letsencrypt-prod
+        scope: cluster
+  ```
+  
+  Options:
+  - `default` - Adds `cert-manager.io/issuer` annotation (namespace-scoped Issuer)
+  - `cluster` - Adds `cert-manager.io/cluster-issuer` annotation (cluster-scoped ClusterIssuer)
+  - `disabled` - Disables cert-manager annotations
+  
+  Resulting annotations:
+  - For `default`: `cert-manager.io/issuer: <issuer.name>`
+  - For `cluster`: `cert-manager.io/cluster-issuer: <issuer.name>`
+</ParamField>
+
+### Example: Let's Encrypt with cert-manager
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.example.com
+    ingressClassName: nginx
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+    tls:
+      enabled: true
+      secretName: ""  # Auto-generated
+```
+
+Prerequisites:
+1. cert-manager installed in cluster
+2. ClusterIssuer created:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+```
+
+## Annotations
+
+<ParamField path="app.ingress.useDefaultAnnotations" type="boolean" default="true">
+  Append default nginx annotations required for Dashboard.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      useDefaultAnnotations: true
+  ```
+  
+  When `true`, adds:
+  ```yaml
+  nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+  nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  ```
+  
+  These are required for proper HTTPS passthrough to Kong gateway.
+</ParamField>
+
+<ParamField path="app.ingress.annotations" type="object" default="{}">
+  Additional custom annotations for the Ingress resource.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      annotations:
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  ```
+</ParamField>
+
+<ParamField path="app.ingress.labels" type="object" default="{}">
+  Additional labels for the Ingress resource.
+  
+  ```yaml
+  app:
+    ingress:
+      enabled: true
+      labels:
+        environment: production
+        team: platform
+  ```
+</ParamField>
+
+## Example Configurations
+
+### Basic Public Ingress with nginx
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.k8s.example.com
+    ingressClassName: nginx
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+    tls:
+      enabled: true
+```
+
+### Internal Ingress with Self-Signed Certificate
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.internal.local
+    ingressClassName: internal-nginx
+    issuer:
+      name: selfsigned
+      scope: default
+    tls:
+      enabled: true
+      secretName: dashboard-selfsigned-cert
+
+nginx:
+  enabled: true  # Enable bundled nginx ingress
+  controller:
+    ingressClassResource:
+      name: internal-nginx
+      default: false
+    service:
+      type: ClusterIP
+
+cert-manager:
+  enabled: true  # Enable bundled cert-manager
+  installCRDs: true
+```
+
+Create self-signed issuer:
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: kubernetes-dashboard
+spec:
+  selfSigned: {}
+```
+
+### AWS ALB Ingress
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.example.com
+    ingressClassName: alb
+    useDefaultAnnotations: false  # ALB doesn't need nginx annotations
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789:certificate/xyz
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+    issuer:
+      scope: disabled  # Using ACM certificate
+    tls:
+      enabled: true
+```
+
+### Traefik Ingress
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.example.com
+    ingressClassName: traefik
+    useDefaultAnnotations: false
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+    tls:
+      enabled: true
+```
+
+### Sub-Path Deployment
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - apps.example.com
+    path: /dashboard
+    pathType: Prefix
+    ingressClassName: nginx
+    useDefaultAnnotations: true  # Adds rewrite-target automatically
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+    tls:
+      enabled: true
+```
+
+Access at: `https://apps.example.com/dashboard`
+
+### Multiple Hosts
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.example.com
+      - k8s.example.com
+      - dashboard.internal.local
+    ingressClassName: nginx
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+    tls:
+      enabled: true
+```
+
+All hosts will share the same TLS certificate (SAN certificate).
+
+## Accessing Dashboard Through Ingress
+
+Once Ingress is configured and certificates are issued:
+
+1. **Verify Ingress is created**:
+   ```bash
+   kubectl get ingress -n kubernetes-dashboard
+   ```
+
+2. **Check certificate status**:
+   ```bash
+   kubectl get certificate -n kubernetes-dashboard
+   kubectl describe certificate kubernetes-dashboard-certs -n kubernetes-dashboard
+   ```
+
+3. **Access Dashboard**:
+   ```
+   https://dashboard.example.com
+   ```
+
+4. **Verify TLS**:
+   ```bash
+   curl -v https://dashboard.example.com
+   ```
+
+## Troubleshooting
+
+### Certificate Not Issued
+
+```bash
+# Check certificate status
+kubectl describe certificate -n kubernetes-dashboard
+
+# Check cert-manager logs
+kubectl logs -n cert-manager deployment/cert-manager
+
+# Check certificate request
+kubectl get certificaterequest -n kubernetes-dashboard
+kubectl describe certificaterequest -n kubernetes-dashboard
+```
+
+### 502 Bad Gateway
+
+- Verify Kong proxy is running:
+  ```bash
+  kubectl get pods -n kubernetes-dashboard -l app.kubernetes.io/name=kong
+  ```
+
+- Check if `useDefaultAnnotations` is enabled for nginx ingress
+
+- Verify backend protocol annotation:
+  ```bash
+  kubectl get ingress -n kubernetes-dashboard -o yaml | grep backend-protocol
+  ```
+
+### SSL Passthrough Issues
+
+If using nginx ingress with SSL passthrough:
+
+1. Ensure nginx ingress controller has `--enable-ssl-passthrough` flag
+2. Verify `ssl-passthrough: "true"` annotation is present
+3. Check Kong is listening on HTTPS (default: 8443)
+
+### Path-Based Routing Not Working
+
+- Verify `rewrite-target` annotation when using sub-paths
+- Check Kong gateway route configuration
+- Ensure `pathType` is set correctly (usually `Prefix`)
+
+## Security Considerations
+
+1. **Always use TLS** in production
+2. **Use valid certificates** from trusted CAs (e.g., Let's Encrypt)
+3. **Restrict access** using Network Policies or Ingress rules
+4. **Enable authentication** - Dashboard doesn't provide built-in auth; users authenticate with Kubernetes tokens
+5. **Use internal Ingress** for sensitive environments
+6. **Set resource limits** on Ingress controller
+
+## Related Configuration
+
+- [Security Configuration](/configuration/security) - Network policies and TLS
+- [Helm Values Reference](/configuration/helm-values) - Complete configuration reference
+- [Settings](/configuration/settings) - Dashboard UI settings

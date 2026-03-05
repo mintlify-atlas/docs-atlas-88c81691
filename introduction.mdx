@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: Overview of Kubernetes Dashboard, its purpose, and key features
+---
+
+<Warning>
+  **Project Archived**: This project is now archived and no longer maintained due to lack of active maintainers and contributors.
+  
+  Please consider using [Headlamp](https://github.com/kubernetes-sigs/headlamp) instead, which was recently moved under sig-ui. Headlamp is an easy-to-use and extensible Kubernetes web UI.
+</Warning>
+
+## What is Kubernetes Dashboard?
+
+Kubernetes Dashboard is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications running in the cluster and troubleshoot them, as well as manage the cluster itself.
+
+![Dashboard UI Overview](/images/overview.png)
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Application Management" icon="layer-group">
+    Deploy, update, and manage containerized applications running in your cluster through an intuitive web interface.
+  </Card>
+  
+  <Card title="Cluster Monitoring" icon="chart-line">
+    Monitor cluster resources, view logs, and track the health of your Kubernetes workloads in real-time.
+  </Card>
+  
+  <Card title="Resource Troubleshooting" icon="wrench">
+    Debug applications and troubleshoot issues with detailed views of pods, deployments, services, and other Kubernetes resources.
+  </Card>
+  
+  <Card title="RBAC Integration" icon="shield">
+    Secure access control through integration with Kubernetes RBAC, ensuring users only see and manage resources they have permissions for.
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+As of version 7.0.0, Kubernetes Dashboard uses a modern multi-container architecture:
+
+- **Web UI Container**: Serves the frontend interface
+- **API Container**: Handles backend API requests to the Kubernetes cluster
+- **Auth Container**: Manages authentication and authorization
+- **Metrics Scraper**: Collects and stores metrics from the Metrics Server
+- **Kong Gateway**: Acts as an API gateway connecting all containers (DBless configuration)
+
+<Note>
+  Starting with version 7.0.0, manifest-based installation has been dropped in favor of Helm-only installation. This change was necessary due to the multi-container setup and hard dependency on the Kong gateway API proxy.
+</Note>
+
+## Versioning Changes
+
+The project has changed its versioning scheme starting with version 7.0.0:
+
+- The `appVersion` field has been dropped from the Helm chart
+- Each module (API, Web, Auth, Metrics Scraper) is now versioned separately
+- The Helm chart version can be considered the application version
+
+## Default Privileges
+
+Kubernetes Dashboard operates with minimal privileges by default:
+
+**Web Container**:
+- `get` and `update` permissions to the Config Map used as settings storage
+- Default ConfigMap name: `kubernetes-dashboard-settings`
+- Default namespace: `kubernetes-dashboard`
+
+**API Container**:
+- `get` permission for `services/proxy` to allow metrics scraper to gather metrics
+- Default service name: `kubernetes-dashboard-metrics-scraper`
+
+**Metrics Scraper Container**:
+- `get`, `list`, and `watch` permissions for `metrics.k8s.io` API to gather metrics from metrics-server
+
+<Warning>
+  It is critical to correctly set up access control for your Kubernetes Dashboard installation. Always use RBAC with minimal privileges needed for Dashboard to run. Never grant cluster-admin privileges in production environments.
+</Warning>
+
+## Use Cases
+
+Kubernetes Dashboard is ideal for:
+
+- **Development Teams**: Quickly view application status and logs without command-line tools
+- **Operations Teams**: Monitor cluster health and troubleshoot issues through a visual interface
+- **Learning Kubernetes**: Understand Kubernetes concepts through visual representation of resources
+- **Resource Management**: Create, update, and delete Kubernetes resources through forms
+
+## Community and Support
+
+<Note>
+  While the project is archived, the community resources remain available for historical reference and forking purposes.
+</Note>
+
+Historical community channels:
+- [#sig-ui on Kubernetes Slack](https://kubernetes.slack.com)
+- [kubernetes-sig-ui mailing list](https://groups.google.com/forum/#!forum/kubernetes-sig-ui)
+- [Issue tracker](https://github.com/kubernetes/dashboard/issues)
+- [SIG UI information](https://github.com/kubernetes/community/tree/master/sig-ui)
+
+## License
+
+Kubernetes Dashboard is licensed under the [Apache License 2.0](https://github.com/kubernetes/dashboard/blob/master/LICENSE).
+
+---
+
+**Next Steps**: Learn how to [install Kubernetes Dashboard](/installation) using Helm or explore [accessing the Dashboard](/accessing-dashboard) after installation.

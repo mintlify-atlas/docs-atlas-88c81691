@@ -1,0 +1,564 @@
+---
+title: 'Metrics API'
+description: 'Metrics collection, aggregation, and monitoring endpoints'
+---
+
+## Overview
+
+The Kubernetes Dashboard Metrics API provides access to resource metrics through integration with the metrics-scraper sidecar. Metrics include CPU usage, memory usage, and custom application metrics.
+
+## Metrics Architecture
+
+The metrics system consists of:
+
+- **Metrics-Scraper Sidecar**: Collects metrics from Kubernetes metrics server
+- **Integration Manager**: Manages metrics provider connections
+- **Metric Client**: Downloads and aggregates metric data
+- **REST API**: Exposes metrics through Dashboard endpoints
+
+## Configuration
+
+### Metrics Provider
+
+<ParamField path="--metrics-provider" type="string" default="sidecar">
+  Metrics provider to use
+  
+  **Options:**
+  - `sidecar`: Use the metrics-scraper sidecar (default)
+  - `none`: Disable metrics collection
+</ParamField>
+
+<ParamField path="--sidecar-host" type="string">
+  Metrics-scraper sidecar host URL
+  
+  **Example:** `http://dashboard-metrics-scraper:8000`
+</ParamField>
+
+<ParamField path="--metric-client-check-period" type="duration" default="30s">
+  Health check interval for metrics client
+</ParamField>
+
+### In-Cluster Configuration
+
+When running in-cluster, the sidecar is accessed via Kubernetes service:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-metrics-scraper
+  namespace: kubernetes-dashboard
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: dashboard-metrics-scraper
+```
+
+## Metrics Integration
+
+### Sidecar Integration
+
+The API integrates with the metrics-scraper sidecar:
+
+```go
+integrationManager.Metric().
+    ConfigureSidecar(args.SidecarHost()).
+    EnableWithRetry(
+        integrationapi.SidecarIntegrationID,
+        time.Duration(args.MetricClientHealthCheckPeriod()),
+    )
+```
+
+### Health Check
+
+Check metrics integration health:
+
+<ParamField path="GET /api/v1/integration/sidecar/health" type="endpoint">
+  Health check for sidecar metrics integration
+</ParamField>
+
+<ResponseField name="healthy" type="boolean">
+  Whether the integration is healthy
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Health status message
+</ResponseField>
+
+## Available Metrics
+
+### CPU Metrics
+
+<ParamField query="metricNames=cpu/usage" type="metric">
+  CPU usage in nanocores
+</ParamField>
+
+<ParamField query="metricNames=cpu/request" type="metric">
+  CPU request in nanocores
+</ParamField>
+
+<ParamField query="metricNames=cpu/limit" type="metric">
+  CPU limit in nanocores
+</ParamField>
+
+### Memory Metrics
+
+<ParamField query="metricNames=memory/usage" type="metric">
+  Memory usage in bytes
+</ParamField>
+
+<ParamField query="metricNames=memory/request" type="metric">
+  Memory request in bytes
+</ParamField>
+
+<ParamField query="metricNames=memory/limit" type="metric">
+  Memory limit in bytes
+</ParamField>
+
+## Query Parameters
+
+### Metric Names
+
+<ParamField query="metricNames" type="string">
+  Comma-separated list of metrics to retrieve
+  
+  **Example:** `metricNames=cpu/usage,memory/usage`
+</ParamField>
+
+### Aggregations
+
+<ParamField query="aggregations" type="string" default="sum">
+  Aggregation method for metrics
+  
+  **Options:**
+  - `sum`: Sum all values
+  - `avg`: Average of values
+  - `min`: Minimum value
+  - `max`: Maximum value
+</ParamField>
+
+## Resource-Specific Metrics
+
+Many resource endpoints support the `metricNames` query parameter to include metrics in the response.
+
+### Pod Metrics
+
+<ParamField path="GET /api/v1/pod/{namespace}?metricNames=cpu/usage,memory/usage" type="endpoint">
+  Get pods with CPU and memory metrics
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod/default?metricNames=cpu/usage,memory/usage' \
+  -H 'Authorization: Bearer <token>'
+```
+
+#### Example Response
+
+```json
+{
+  "listMeta": {
+    "totalItems": 2
+  },
+  "items": [
+    {
+      "objectMeta": {
+        "name": "nginx-pod",
+        "namespace": "default"
+      },
+      "metrics": {
+        "cpu/usage": {
+          "metricName": "cpu/usage",
+          "dataPoints": [
+            {
+              "x": 1709632800000,
+              "y": 50000000
+            }
+          ],
+          "metricPoints": [
+            {
+              "timestamp": "2026-03-05T10:00:00Z",
+              "value": 50000000
+            }
+          ]
+        },
+        "memory/usage": {
+          "metricName": "memory/usage",
+          "dataPoints": [
+            {
+              "x": 1709632800000,
+              "y": 104857600
+            }
+          ],
+          "metricPoints": [
+            {
+              "timestamp": "2026-03-05T10:00:00Z",
+              "value": 104857600
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+### Deployment Metrics
+
+<ParamField path="GET /api/v1/deployment/{namespace}?metricNames=cpu/usage" type="endpoint">
+  Get deployments with aggregated metrics from all pods
+</ParamField>
+
+### Node Metrics
+
+<ParamField path="GET /api/v1/node?metricNames=cpu/usage,memory/usage" type="endpoint">
+  Get nodes with system metrics
+</ParamField>
+
+## Metric Data Structures
+
+### Metric Object
+
+<ResponseField name="metricName" type="string">
+  Name of the metric (e.g., `cpu/usage`)
+</ResponseField>
+
+<ResponseField name="dataPoints" type="array">
+  Array of data points for charting
+  
+  **Structure:**
+  ```json
+  [
+    {
+      "x": 1709632800000,  // timestamp in milliseconds
+      "y": 50000000        // metric value
+    }
+  ]
+  ```
+</ResponseField>
+
+<ResponseField name="metricPoints" type="array">
+  Array of metric points with timestamps
+  
+  **Structure:**
+  ```json
+  [
+    {
+      "timestamp": "2026-03-05T10:00:00Z",
+      "value": 50000000
+    }
+  ]
+  ```
+</ResponseField>
+
+<ResponseField name="label" type="object">
+  Resource labels for the metric
+  
+  **Structure:**
+  ```json
+  {
+    "pod": ["nginx-pod-uid"],
+    "namespace": ["default"]
+  }
+  ```
+</ResponseField>
+
+## Sidecar REST API
+
+The metrics-scraper sidecar exposes its own REST API:
+
+### Base Path
+
+```
+/api/v1/dashboard/
+```
+
+### Pod Metrics
+
+<ParamField path="GET /api/v1/dashboard/{namespace}/pod/{pod}/metrics/{metric}" type="endpoint">
+  Get metrics for a specific pod
+</ParamField>
+
+### Batch Pod Metrics
+
+<ParamField path="GET /api/v1/dashboard/{namespace}/pod/{pod1},{pod2},{pod3}/metrics/{metric}" type="endpoint">
+  Get metrics for multiple pods in one request
+</ParamField>
+
+### Node Metrics
+
+<ParamField path="GET /api/v1/dashboard/node/{node}/metrics/{metric}" type="endpoint">
+  Get metrics for a specific node
+</ParamField>
+
+## Metric Client Interface
+
+The Dashboard uses a metric client interface to download and aggregate metrics:
+
+### Download Metrics
+
+```go
+DownloadMetrics(
+    selectors []ResourceSelector,
+    metricNames []string,
+    cachedResources *CachedResources,
+) MetricPromises
+```
+
+### Aggregate Metrics
+
+```go
+AggregateMetrics(
+    metrics MetricPromises,
+    metricName string,
+    aggregations AggregationModes,
+) MetricPromises
+```
+
+## Resource Selectors
+
+Metric downloads use resource selectors to specify target resources:
+
+```go
+type ResourceSelector struct {
+    Namespace      string
+    ResourceType   string
+    ResourceName   string
+    UID            types.UID
+}
+```
+
+### Example
+
+```json
+{
+  "namespace": "default",
+  "resourceType": "pod",
+  "resourceName": "nginx-pod",
+  "uid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+## Aggregation Modes
+
+### Sum Aggregation
+
+Adds all metric values:
+
+```json
+{
+  "aggregation": "sum",
+  "value": 150000000
+}
+```
+
+### Average Aggregation
+
+Calculates the mean:
+
+```json
+{
+  "aggregation": "avg",
+  "value": 50000000
+}
+```
+
+### Min/Max Aggregation
+
+Finds minimum or maximum values:
+
+```json
+{
+  "aggregation": "max",
+  "value": 75000000
+}
+```
+
+## Batch Metric Downloads
+
+The system optimizes metric downloads by:
+
+1. **Compressing selectors**: Combining similar requests
+2. **Batch downloads**: Downloading multiple resources in one request
+3. **Parallel processing**: Using goroutines for concurrent downloads
+
+### All-in-One Downloads
+
+Supported resource types for batch downloads:
+
+- Pods
+- Nodes
+- PersistentVolumeClaims
+
+```go
+var SidecarAllInOneDownloadConfig = map[string]bool{
+    "pod":                     true,
+    "node":                    true,
+    "persistentvolumeclaim":   true,
+}
+```
+
+## Metric Promises
+
+Metrics are returned as promises for asynchronous processing:
+
+```go
+type MetricPromise struct {
+    Metric chan *Metric
+    Error  chan error
+}
+```
+
+### Usage Example
+
+```go
+promise := client.DownloadMetric(selectors, "cpu/usage", nil)
+metric, err := promise.GetMetric()
+if err != nil {
+    // handle error
+}
+fmt.Printf("CPU Usage: %d nanocores\n", metric.DataPoints[0].Y)
+```
+
+## Prometheus Metrics
+
+The Dashboard exposes its own Prometheus metrics at:
+
+<ParamField path="GET /metrics" type="endpoint">
+  Prometheus metrics endpoint
+</ParamField>
+
+### Available Metrics
+
+<ResponseField name="apiserver_request_count" type="counter">
+  Total API requests by verb, resource, client, content type, and code
+  
+  **Labels:** `verb`, `resource`, `client`, `contentType`, `code`
+</ResponseField>
+
+<ResponseField name="apiserver_request_latencies" type="histogram">
+  Request latency distribution in microseconds
+  
+  **Labels:** `verb`, `resource`
+  
+  **Buckets:** 125ms, 250ms, 500ms, 1s, 2s, 4s, 8s
+</ResponseField>
+
+<ResponseField name="apiserver_request_latencies_summary" type="summary">
+  Request latency summary with 1-hour sliding window
+  
+  **Labels:** `verb`, `resource`
+</ResponseField>
+
+## Error Handling
+
+### Metric Unavailable
+
+When metrics are not available:
+
+```json
+{
+  "metrics": null,
+  "warning": "Metrics not available"
+}
+```
+
+### Sidecar Connection Error
+
+If the sidecar is unreachable:
+
+```json
+{
+  "status": "Failure",
+  "message": "Unable to connect to metrics sidecar",
+  "code": 503
+}
+```
+
+## Example: Complete Metrics Query
+
+### Request
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/deployment/production?metricNames=cpu/usage,memory/usage&aggregations=avg' \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Accept: application/json'
+```
+
+### Response
+
+```json
+{
+  "listMeta": {
+    "totalItems": 1
+  },
+  "items": [
+    {
+      "objectMeta": {
+        "name": "api-server",
+        "namespace": "production",
+        "creationTimestamp": "2026-03-01T10:00:00Z"
+      },
+      "typeMeta": {
+        "kind": "Deployment"
+      },
+      "pods": {
+        "current": 3,
+        "desired": 3
+      },
+      "metrics": {
+        "cpu/usage": {
+          "metricName": "cpu/usage",
+          "dataPoints": [
+            {"x": 1709632800000, "y": 150000000},
+            {"x": 1709632860000, "y": 160000000},
+            {"x": 1709632920000, "y": 155000000}
+          ],
+          "aggregation": "avg"
+        },
+        "memory/usage": {
+          "metricName": "memory/usage",
+          "dataPoints": [
+            {"x": 1709632800000, "y": 314572800},
+            {"x": 1709632860000, "y": 318767104},
+            {"x": 1709632920000, "y": 316669952}
+          ],
+          "aggregation": "avg"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Best Practices
+
+### Performance
+
+1. **Request only needed metrics**: Don't request all metrics if you only need CPU
+2. **Use aggregations**: Let the API aggregate instead of doing it client-side
+3. **Batch requests**: Request metrics for multiple resources in list endpoints
+4. **Cache results**: Implement client-side caching for dashboards
+
+### Metric Selection
+
+```bash
+# Good: Request specific metrics
+GET /api/v1/pod/default?metricNames=cpu/usage
+
+# Better: Request multiple related metrics
+GET /api/v1/pod/default?metricNames=cpu/usage,cpu/limit
+
+# Avoid: Making separate requests for each metric
+```
+
+### Troubleshooting
+
+1. **Check sidecar health**: Verify metrics-scraper is running
+2. **Verify metrics-server**: Ensure metrics-server is deployed in cluster
+3. **Check RBAC**: Ensure service account has metrics read permissions
+4. **Review logs**: Check Dashboard and sidecar logs for errors

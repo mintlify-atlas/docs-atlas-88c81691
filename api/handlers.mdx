@@ -1,0 +1,406 @@
+---
+title: 'Handler Endpoints'
+description: 'Special API handlers for terminal access, logs, downloads, and filtering'
+---
+
+## Overview
+
+Handler endpoints provide specialized functionality beyond standard resource CRUD operations, including interactive terminal access, log streaming, file downloads, and advanced filtering.
+
+## Terminal Handler
+
+The terminal handler enables interactive shell access to containers via WebSocket (SockJS) connections.
+
+### Initialize Terminal Session
+
+<ParamField path="GET /api/v1/pod/{namespace}/{pod}/shell/{container}" type="endpoint">
+  Initialize a shell session to a container
+  
+  **Path Parameters:**
+  - `namespace`: Pod namespace
+  - `pod`: Pod name
+  - `container`: Container name
+  
+  **Query Parameters:**
+  - `shell`: Preferred shell (optional: `bash`, `sh`, `powershell`, `cmd`)
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Session ID for binding the WebSocket connection
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod/default/nginx-pod/shell/nginx?shell=bash' \
+  -H 'Authorization: Bearer <token>'
+```
+
+### Example Response
+
+```json
+{
+  "id": "a1b2c3d4e5f6789012345678901234567890abcd"
+}
+```
+
+### WebSocket Connection
+
+After obtaining the session ID, establish a SockJS connection:
+
+```
+ws://dashboard.example.com/api/sockjs/<server-id>/<session-id>/websocket
+```
+
+### Terminal Message Protocol
+
+The terminal uses a JSON-based message protocol:
+
+#### Bind Message (Client → Server)
+
+```json
+{
+  "Op": "bind",
+  "SessionID": "a1b2c3d4e5f6789012345678901234567890abcd"
+}
+```
+
+#### Stdin Message (Client → Server)
+
+```json
+{
+  "Op": "stdin",
+  "Data": "ls -la\n"
+}
+```
+
+#### Resize Message (Client → Server)
+
+```json
+{
+  "Op": "resize",
+  "Rows": 24,
+  "Cols": 80
+}
+```
+
+#### Stdout Message (Server → Client)
+
+```json
+{
+  "Op": "stdout",
+  "Data": "total 64\ndrwxr-xr-x  1 root root 4096 Mar  5 10:00 .\n"
+}
+```
+
+#### Toast Message (Server → Client)
+
+```json
+{
+  "Op": "toast",
+  "Data": "Connection established"
+}
+```
+
+### Shell Selection
+
+If no shell is specified or the specified shell is invalid, the system tries shells in this order:
+
+1. `bash`
+2. `sh`
+3. `powershell`
+4. `cmd`
+
+### Session Timeout
+
+WebSocket connections must be established within **10 seconds** of receiving the session ID, or the session will be automatically cleaned up.
+
+### Terminal Features
+
+- **Full TTY support**: Supports terminal control codes and formatting
+- **Resize handling**: Dynamic terminal resizing
+- **Multiple shell support**: Automatically detects available shells
+- **Session isolation**: Each session is uniquely identified and isolated
+
+## Log Handler
+
+Retrieve and download container logs.
+
+### Get Logs
+
+<ParamField path="GET /api/v1/log/{namespace}/{pod}" type="endpoint">
+  Get logs from the first container in a Pod
+</ParamField>
+
+<ParamField path="GET /api/v1/log/{namespace}/{pod}/{container}" type="endpoint">
+  Get logs from a specific container
+  
+  **Query Parameters:**
+  - `previous`: Get logs from previous container instance (boolean)
+  - `tailLines`: Number of lines to show from the end of logs
+  - `timestamps`: Include timestamps (boolean)
+  - `sinceTime`: Show logs since timestamp (RFC3339)
+</ParamField>
+
+<ResponseField name="logs" type="string[]">
+  Array of log lines
+</ResponseField>
+
+<ResponseField name="info" type="object">
+  Log metadata including pod info and timestamps
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/log/default/nginx-pod/nginx?tailLines=100&timestamps=true' \
+  -H 'Authorization: Bearer <token>'
+```
+
+### Example Response
+
+```json
+{
+  "logs": [
+    "2026-03-05T10:00:00.123456789Z Starting nginx",
+    "2026-03-05T10:00:01.234567890Z Nginx started successfully"
+  ],
+  "info": {
+    "podName": "nginx-pod",
+    "containerName": "nginx",
+    "fromDate": "2026-03-05T10:00:00Z",
+    "toDate": "2026-03-05T10:05:00Z"
+  }
+}
+```
+
+### Download Log File
+
+<ParamField path="GET /api/v1/log/file/{namespace}/{pod}/{container}" type="endpoint">
+  Download logs as a text file
+  
+  **Response Type:** `text/plain`
+</ParamField>
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/log/file/default/nginx-pod/nginx' \
+  -H 'Authorization: Bearer <token>' \
+  -o nginx-logs.txt
+```
+
+### Get Log Sources
+
+<ParamField path="GET /api/v1/log/source/{namespace}/{resourceName}/{resourceType}" type="endpoint">
+  Get available log sources for a resource (e.g., containers in a deployment)
+  
+  **Path Parameters:**
+  - `namespace`: Resource namespace
+  - `resourceName`: Name of the resource
+  - `resourceType`: Type of resource (e.g., `deployment`, `replicaset`)
+</ParamField>
+
+<ResponseField name="logSources" type="array">
+  List of available log sources with pod and container information
+</ResponseField>
+
+## Download Handler
+
+The download handler provides file download functionality with proper content-type headers.
+
+### Implementation
+
+The handler automatically sets the `Content-Type` header to `text/plain` and streams content to the client:
+
+```go
+response.AddHeader("Content-Type", "text/plain")
+io.Copy(response, result)
+```
+
+This is used internally by:
+- Log file downloads
+- Configuration exports
+- Custom resource exports
+
+## Filter Handler
+
+The filter system processes query parameters for resource filtering, sorting, and pagination.
+
+### Request Logging
+
+All requests are logged with the following information:
+
+```
+Incoming {PROTOCOL} {METHOD} {URI} request from {CLIENT}: {BODY}
+```
+
+Sensitive URLs (e.g., `/api/v1/login`, `/api/v1/csrftoken/login`) have their content hidden unless debug logging is enabled.
+
+### Response Logging
+
+```
+Outgoing response to {CLIENT} with {STATUS_CODE} status code
+```
+
+### CSRF Validation
+
+POST requests are validated for CSRF tokens unless:
+- CSRF protection is disabled via `--disable-csrf`
+- The request is to a validation endpoint (`/api/v1/appdeployment/validate/*`)
+
+### Metrics Collection
+
+All requests are automatically tracked with Prometheus metrics:
+
+<ResponseField name="apiserver_request_count" type="counter">
+  Total API requests broken down by verb, resource, client, content type, and status code
+</ResponseField>
+
+<ResponseField name="apiserver_request_latencies" type="histogram">
+  Request latency distribution in microseconds
+  
+  **Buckets**: 125ms to 8 seconds (exponential)
+</ResponseField>
+
+<ResponseField name="apiserver_request_latencies_summary" type="summary">
+  Request latency summary with 1-hour sliding window
+</ResponseField>
+
+### Client IP Detection
+
+The filter extracts client IPs from proxy headers in this order:
+
+1. `X-Original-Forwarded-For`
+2. `X-Forwarded-For`
+3. `X-Real-Ip`
+4. Direct `RemoteAddr`
+
+## Integration Handler
+
+Integration endpoints are managed through the Integration Manager for metrics and external services.
+
+### Metrics Integration Endpoints
+
+See [Metrics API](/api/metrics) for detailed metrics integration endpoints.
+
+### Health Check
+
+Integrations expose health check endpoints through the integration handler:
+
+```bash
+GET /api/v1/integration/{integrationId}/health
+```
+
+## WebSocket (SockJS) Handler
+
+The SockJS handler is mounted at:
+
+```
+/api/sockjs/
+```
+
+### Connection Flow
+
+1. Client requests terminal session via REST API
+2. Server returns session ID
+3. Client establishes SockJS connection to `/api/sockjs/`
+4. Client sends "bind" message with session ID
+5. Server validates and binds the session
+6. Bidirectional communication begins
+
+### SockJS Configuration
+
+The handler uses default SockJS options:
+- WebSocket support enabled
+- HTTP streaming enabled
+- XHR polling as fallback
+
+## Error Handling
+
+All handlers use consistent error handling:
+
+### Success Response
+
+```json
+{
+  "status": 200,
+  "data": {...}
+}
+```
+
+### Error Response
+
+```json
+{
+  "status": "Failure",
+  "message": "Container not found",
+  "reason": "NotFound",
+  "code": 404
+}
+```
+
+### Common Error Codes
+
+- `400` - Bad Request (invalid parameters)
+- `401` - Unauthorized (missing or invalid token)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not Found (resource doesn't exist)
+- `500` - Internal Server Error
+
+## Example: Complete Terminal Session
+
+### Step 1: Get Session ID
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod/default/nginx-pod/shell/nginx' \
+  -H 'Authorization: Bearer <token>'
+```
+
+Response:
+```json
+{"id": "abc123"}
+```
+
+### Step 2: Connect WebSocket
+
+```javascript
+const sock = new SockJS('/api/sockjs');
+
+sock.onopen = function() {
+  sock.send(JSON.stringify({
+    Op: 'bind',
+    SessionID: 'abc123'
+  }));
+};
+
+sock.onmessage = function(e) {
+  const msg = JSON.parse(e.data);
+  if (msg.Op === 'stdout') {
+    console.log(msg.Data);
+  }
+};
+```
+
+### Step 3: Send Commands
+
+```javascript
+sock.send(JSON.stringify({
+  Op: 'stdin',
+  Data: 'ls -la\n'
+}));
+```
+
+### Step 4: Handle Terminal Resize
+
+```javascript
+window.addEventListener('resize', function() {
+  sock.send(JSON.stringify({
+    Op: 'resize',
+    Rows: terminal.rows,
+    Cols: terminal.cols
+  }));
+});
+```

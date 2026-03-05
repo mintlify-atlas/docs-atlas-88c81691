@@ -1,0 +1,373 @@
+---
+title: Testing
+description: Running tests for Kubernetes Dashboard
+---
+
+## Testing Overview
+
+Kubernetes Dashboard uses multiple testing strategies to ensure code quality:
+
+- **Unit Tests** - Test individual components and functions
+- **Integration Tests** - Test module interactions
+- **End-to-End (E2E) Tests** - Test complete user workflows
+- **Linting & Code Quality** - Ensure code style and standards
+
+## Running All Tests
+
+To run all tests across all modules:
+
+```bash
+make test
+```
+
+**What it does:**
+- Ensures all required tools are installed
+- Cleans up temporary directories
+- Runs test suites for all modules
+- Includes Go tests and JavaScript/TypeScript tests
+
+**Source:** [Makefile:47](~/workspace/source/Makefile:47)
+
+## Unit Tests
+
+### Go Unit Tests
+
+Go unit tests are run as part of the global test suite. They test the backend modules:
+- API module
+- Auth module
+- Metrics Scraper
+- Common modules
+
+### JavaScript/TypeScript Unit Tests
+
+The web module uses Jest for unit testing.
+
+**Run web unit tests:**
+```bash
+cd modules/web
+yarn test
+```
+
+Or directly with Jest:
+```bash
+cd modules/web
+npx jest -c jest.config.js
+```
+
+**Source:** [modules/web/package.json:29](~/workspace/source/modules/web/package.json:29)
+
+### Test Configuration
+
+Jest is configured with:
+- Custom configuration in `jest.config.js`
+- Angular preset via `jest-preset-angular`
+- TypeScript support via `ts-jest`
+
+## Code Coverage
+
+To generate code coverage reports:
+
+```bash
+make coverage
+```
+
+**What it does:**
+- Runs all test suites with coverage enabled
+- Generates coverage reports for all modules
+
+**Source:** [Makefile:39](~/workspace/source/Makefile:39)
+
+### Web Module Coverage
+
+For detailed web module coverage:
+
+```bash
+cd modules/web
+yarn coverage
+```
+
+This runs:
+```bash
+npx jest -c jest.config.js --coverage
+```
+
+**Source:** [modules/web/package.json:30](~/workspace/source/modules/web/package.json:30)
+
+## End-to-End Tests
+
+E2E tests use Cypress to test complete user workflows in a real browser.
+
+### Running E2E Tests
+
+**Automated E2E (headless):**
+```bash
+cd modules/web
+yarn e2e
+```
+
+This will:
+1. Start the development server
+2. Wait for the server to be ready
+3. Run Cypress tests in headless mode
+4. Kill the server when tests complete
+
+**Source:** [modules/web/package.json:32](~/workspace/source/modules/web/package.json:32)
+
+**E2E with visible browser:**
+```bash
+cd modules/web
+yarn e2e:headed
+```
+
+**Source:** [modules/web/package.json:33](~/workspace/source/modules/web/package.json:33)
+
+### Running Cypress Directly
+
+If you already have the development server running:
+
+```bash
+cd modules/web
+yarn cypress
+```
+
+This waits for the server at `http://127.0.0.1:8080` and runs Cypress tests.
+
+**Source:** [modules/web/package.json:31](~/workspace/source/modules/web/package.json:31)
+
+### E2E Test Requirements
+
+Before running E2E tests, ensure:
+- Development server is running or will be started
+- Port 8080 is available
+- Required endpoints are accessible:
+  - `http://127.0.0.1:8080/api/v1/node`
+  - `http://127.0.0.1:8080/config`
+  - `http://127.0.0.1:8080`
+
+## Code Quality Checks
+
+### Running All Checks
+
+Run all code quality checks across all modules:
+
+```bash
+make check
+```
+
+**What it does:**
+- Runs linters for Go code (golangci-lint)
+- Runs linters for TypeScript/JavaScript (eslint)
+- Runs style linters for CSS/SCSS (stylelint)
+- Runs formatters (prettier)
+- Checks license headers
+- Checks i18n files
+
+**Source:** [Makefile:31](~/workspace/source/Makefile:31)
+
+### Web Module Checks
+
+For detailed web module checks:
+
+```bash
+cd modules/web
+yarn check
+```
+
+This runs:
+- i18n checks
+- HTML formatting checks
+- SCSS linting
+- TypeScript linting
+
+**Source:** [modules/web/package.json:24](~/workspace/source/modules/web/package.json:24)
+
+### Individual Check Commands
+
+<CodeGroup>
+```bash Check TypeScript
+cd modules/web
+yarn check:ts
+```
+
+```bash Check SCSS
+cd modules/web
+yarn check:scss
+```
+
+```bash Check HTML
+cd modules/web
+yarn check:html
+```
+
+```bash Check i18n
+cd modules/web
+yarn check:i18n
+```
+</CodeGroup>
+
+## Auto-Fixing Issues
+
+### Fix All Issues
+
+Many linting and formatting issues can be automatically fixed:
+
+```bash
+make fix
+```
+
+**What it does:**
+- Auto-fixes Go code issues
+- Auto-fixes TypeScript/JavaScript issues
+- Auto-fixes CSS/SCSS issues
+- Auto-fixes HTML formatting
+- Adds missing license headers
+
+**Source:** [Makefile:43](~/workspace/source/Makefile:43)
+
+### Web Module Auto-Fix
+
+```bash
+cd modules/web
+yarn fix
+```
+
+This runs:
+- i18n fixes
+- HTML formatting
+- SCSS auto-fixes
+- TypeScript auto-fixes
+
+**Source:** [modules/web/package.json:19](~/workspace/source/modules/web/package.json:19)
+
+### Individual Fix Commands
+
+<CodeGroup>
+```bash Fix TypeScript
+cd modules/web
+yarn fix:ts
+```
+
+```bash Fix SCSS
+cd modules/web
+yarn fix:scss
+```
+
+```bash Fix HTML
+cd modules/web
+yarn fix:html
+```
+
+```bash Fix i18n
+cd modules/web
+yarn fix:i18n
+```
+</CodeGroup>
+
+## License Checks
+
+The project requires license headers on all source files.
+
+**Check license headers:**
+```bash
+make check-license
+```
+
+**Add missing license headers:**
+```bash
+make fix-license
+```
+
+**Sources:** 
+- [Makefile:60](~/workspace/source/Makefile:60)
+- [Makefile:65](~/workspace/source/Makefile:65)
+
+## Pre-Commit Checks
+
+All pull requests must pass the following checks:
+
+1. **Unit Tests** - All unit tests must pass
+2. **Linting** - Code must meet style guidelines
+3. **License Headers** - All files must have proper license headers
+4. **Build** - Project must build successfully
+
+<Note>
+  Run `make check` and `make test` locally before submitting a pull request to ensure all checks pass.
+</Note>
+
+## Lint-Staged
+
+The project uses `lint-staged` to automatically run checks on staged files:
+
+**Configuration from package.json:**
+- **TypeScript files** - Auto-fix with eslint
+- **SCSS files** - Auto-fix with stylelint
+- **HTML files** - Format with prettier
+
+**Source:** [modules/web/package.json:36](~/workspace/source/modules/web/package.json:36)
+
+## Testing Tools
+
+The project uses the following testing tools:
+
+| Tool | Purpose | Used For |
+|------|---------|----------|
+| **Jest** | Unit testing | JavaScript/TypeScript tests |
+| **Cypress** | E2E testing | Browser-based integration tests |
+| **golangci-lint** | Go linting | Go code quality |
+| **eslint** | JS/TS linting | TypeScript/JavaScript code quality |
+| **stylelint** | CSS linting | SCSS/CSS code quality |
+| **prettier** | Code formatting | HTML/TS/JS formatting |
+
+## Continuous Integration
+
+All tests and checks run automatically on pull requests via GitHub Actions. The following must pass before merging:
+
+- All unit tests
+- All linting checks
+- License header checks
+- Build verification
+
+## Troubleshooting
+
+### Tests Failing
+
+1. **Ensure dependencies are installed:**
+   ```bash
+   cd modules/web && yarn
+   ```
+
+2. **Clean and rebuild:**
+   ```bash
+   make clean
+   make build
+   ```
+
+3. **Check for port conflicts:**
+   - E2E tests require port 8080
+   - Development server requires port 8080
+
+### E2E Tests Timing Out
+
+- Increase wait timeout in E2E configuration
+- Ensure development server is running
+- Check that all required endpoints are accessible
+
+### Linting Errors
+
+Most linting errors can be automatically fixed:
+```bash
+make fix
+```
+
+For remaining errors, review the linting output and fix manually.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-pull-request" href="./contributing">
+    Learn how to contribute your changes
+  </Card>
+  <Card title="Getting Started" icon="rocket" href="./getting-started">
+    Back to development overview
+  </Card>
+</CardGroup>

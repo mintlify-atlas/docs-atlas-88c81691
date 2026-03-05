@@ -1,0 +1,501 @@
+---
+title: Labels and Annotations
+description: Working with labels and annotations in Kubernetes Dashboard
+---
+
+Labels and annotations are key-value pairs that provide metadata for Kubernetes resources. This guide covers how to view, add, and manage labels and annotations through the Dashboard interface.
+
+## Overview
+
+Kubernetes uses two types of metadata:
+
+<CardGroup cols={2}>
+  <Card title="Labels" icon="tags">
+    Identifying metadata used for selection and organization
+  </Card>
+  <Card title="Annotations" icon="note-sticky">
+    Non-identifying metadata for tools and libraries
+  </Card>
+</CardGroup>
+
+### Labels
+
+Labels are key-value pairs attached to objects for identification and selection:
+
+```yaml
+metadata:
+  labels:
+    app: nginx
+    environment: production
+    tier: frontend
+    version: v1.2.3
+```
+
+**Use cases:**
+- Resource selection via label selectors
+- Service discovery and routing
+- Organizing resources by application, environment, or team
+- Scheduling and placement decisions
+
+### Annotations
+
+Annotations store arbitrary non-identifying metadata:
+
+```yaml
+metadata:
+  annotations:
+    kubernetes.io/change-cause: "Updated nginx to 1.21"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    deployment.kubernetes.io/revision: "3"
+```
+
+**Use cases:**
+- Build/release information
+- Tool configuration (monitoring, logging, service mesh)
+- Documentation and contact information
+- Deployment history and rollout tracking
+
+## Viewing Labels and Annotations
+
+### In List Views
+
+Resource list views display common labels:
+
+1. Navigate to any resource type (Pods, Deployments, Services, etc.)
+2. Labels are shown in the list view columns
+3. Click on a label to filter resources with that label
+
+### In Detail Views
+
+View all labels and annotations for a resource:
+
+<Steps>
+  <Step title="Open Resource">
+    Click on any resource name to open its detail view
+  </Step>
+  
+  <Step title="View Metadata Section">
+    Scroll to the metadata section showing labels and annotations
+  </Step>
+  
+  <Step title="Expand Lists">
+    Click to expand the full list of labels or annotations
+  </Step>
+</Steps>
+
+### In YAML View
+
+See the raw metadata:
+
+1. Open resource detail view
+2. Click the **YAML** tab
+3. Find the `metadata` section:
+
+```yaml
+metadata:
+  name: nginx-deployment
+  namespace: default
+  labels:
+    app: nginx
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment"...}
+```
+
+## Adding Labels
+
+Add labels through the Dashboard UI:
+
+### During Resource Creation
+
+When creating applications via the form:
+
+<Steps>
+  <Step title="Access Creation Form">
+    Navigate to **Create** → **Create from form**
+  </Step>
+  
+  <Step title="Show Advanced Options">
+    Expand the advanced options section
+  </Step>
+  
+  <Step title="Add Labels">
+    In the labels section, click **Add Label**
+  </Step>
+  
+  <Step title="Enter Key-Value Pairs">
+    Provide label key and value:
+    ```
+    Key: environment
+    Value: production
+    ```
+  </Step>
+</Steps>
+
+<Info>
+Dashboard automatically adds the `k8s-app` label to deployments created via the form. This label is used for service discovery and dashboard organization.
+</Info>
+
+### Editing Existing Resources
+
+Add labels to existing resources:
+
+<Steps>
+  <Step title="Open Resource">
+    Navigate to the resource detail view
+  </Step>
+  
+  <Step title="Edit YAML">
+    Click the **Edit** button
+  </Step>
+  
+  <Step title="Add Labels">
+    Update the `metadata.labels` section:
+    ```yaml
+    metadata:
+      labels:
+        app: nginx
+        team: platform  # New label
+        cost-center: engineering  # New label
+    ```
+  </Step>
+  
+  <Step title="Save Changes">
+    Click **Update** to apply changes
+  </Step>
+</Steps>
+
+## Adding Annotations
+
+Add annotations for documentation and tool integration:
+
+### Via YAML Editor
+
+```yaml
+metadata:
+  annotations:
+    # Documentation
+    description: "Primary web application frontend"
+    owner: "platform-team@company.com"
+    
+    # Monitoring integration
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+    
+    # Service mesh
+    sidecar.istio.io/inject: "true"
+    
+    # Custom tooling
+    company.com/backup-policy: "daily"
+    company.com/pii-data: "false"
+```
+
+### Common Annotations
+
+<Accordion title="Kubernetes System Annotations">
+```yaml
+kubernetes.io/change-cause: "Deployment reason"
+kubernetes.io/description: "Resource description"
+kubernetes.io/ingress.class: "nginx"
+deployment.kubernetes.io/revision: "3"
+```
+</Accordion>
+
+<Accordion title="Prometheus Annotations">
+```yaml
+prometheus.io/scrape: "true"
+prometheus.io/port: "9090"
+prometheus.io/path: "/metrics"
+prometheus.io/scheme: "https"
+```
+</Accordion>
+
+<Accordion title="Service Mesh Annotations">
+```yaml
+# Istio
+sidecar.istio.io/inject: "true"
+sidecar.istio.io/proxyCPU: "100m"
+sidecar.istio.io/proxyMemory: "128Mi"
+
+# Linkerd
+linkerd.io/inject: "enabled"
+```
+</Accordion>
+
+## Label Selectors
+
+Use label selectors to filter and organize resources:
+
+### Equality-Based Selectors
+
+Match labels exactly:
+
+```yaml
+selector:
+  app: nginx
+  environment: production
+```
+
+This matches resources with both labels.
+
+### Set-Based Selectors
+
+More flexible matching:
+
+```yaml
+selector:
+  matchLabels:
+    app: nginx
+  matchExpressions:
+  - key: environment
+    operator: In
+    values:
+    - production
+    - staging
+  - key: tier
+    operator: NotIn
+    values:
+    - deprecated
+```
+
+**Operators:**
+- `In`: Label value is in the set
+- `NotIn`: Label value is not in the set
+- `Exists`: Label key exists
+- `DoesNotExist`: Label key doesn't exist
+
+### Using Selectors in Dashboard
+
+Filter resources by labels:
+
+1. Navigate to any resource list view
+2. Click a label value in the list
+3. Dashboard filters to show only resources with that label
+
+## Label Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use meaningful, hierarchical labels">
+    Structure labels for clarity:
+    
+    ```yaml
+    labels:
+      app.kubernetes.io/name: wordpress
+      app.kubernetes.io/instance: wordpress-prod
+      app.kubernetes.io/version: "6.2.0"
+      app.kubernetes.io/component: frontend
+      app.kubernetes.io/part-of: blog-platform
+      app.kubernetes.io/managed-by: helm
+    ```
+  </Accordion>
+  
+  <Accordion title="Follow Kubernetes recommended labels">
+    Use [recommended label keys](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/):
+    
+    - `app.kubernetes.io/name`: Application name
+    - `app.kubernetes.io/instance`: Unique instance identifier
+    - `app.kubernetes.io/version`: Application version
+    - `app.kubernetes.io/component`: Component within architecture
+    - `app.kubernetes.io/part-of`: Higher-level application
+    - `app.kubernetes.io/managed-by`: Tool managing the resource
+  </Accordion>
+  
+  <Accordion title="Keep labels short and descriptive">
+    **Good:**
+    ```yaml
+    env: prod
+    tier: frontend
+    ```
+    
+    **Avoid:**
+    ```yaml
+    environment_type_for_deployment: production
+    application_tier_classification: frontend-web-servers
+    ```
+  </Accordion>
+  
+  <Accordion title="Use consistent labeling schemes">
+    Standardize across your organization:
+    
+    ```yaml
+    # Consistent environment labels
+    env: dev | staging | prod
+    
+    # Consistent tier labels  
+    tier: frontend | backend | database
+    
+    # Consistent team ownership
+    team: platform | data | security
+    ```
+  </Accordion>
+  
+  <Accordion title="Don't store large data in annotations">
+    Annotations are limited to 256KB total. For large data, use ConfigMaps or external storage.
+  </Accordion>
+</AccordionGroup>
+
+## Common Label Patterns
+
+### Application Identification
+
+```yaml
+labels:
+  app: wordpress
+  app.kubernetes.io/name: wordpress
+  app.kubernetes.io/instance: wordpress-prod-01
+```
+
+### Environment Segregation
+
+```yaml
+labels:
+  environment: production
+  env: prod
+```
+
+### Team Ownership
+
+```yaml
+labels:
+  team: platform
+  owner: platform-team
+```
+
+### Release Tracking
+
+```yaml
+labels:
+  version: v1.2.3
+  release: spring-2026
+```
+
+### Cost Allocation
+
+```yaml
+labels:
+  cost-center: engineering
+  project: customer-portal
+  budget-code: ENG-2026-Q1
+```
+
+## Service Discovery with Labels
+
+Services use label selectors to find pods:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx      # Matches pods with this label
+    tier: frontend
+  ports:
+  - port: 80
+    targetPort: 8080
+```
+
+<Info>
+Dashboard displays the label selector in the service detail view, showing which pods are selected by the service.
+</Info>
+
+## Deployment Selectors
+
+Deployments use selectors to manage pods:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx        # Must match selector
+        version: v1.21
+```
+
+<Warning>
+Deployment selectors are immutable after creation. You cannot change the selector without deleting and recreating the deployment.
+</Warning>
+
+## Label Validation
+
+Labels must follow specific rules:
+
+### Label Keys
+
+- Optional prefix + name separated by `/`
+- Prefix: DNS subdomain (max 253 characters)
+- Name: max 63 characters
+- Characters: alphanumeric, `-`, `_`, `.`
+- Must start and end with alphanumeric
+
+**Valid:**
+```yaml
+app: nginx
+app.kubernetes.io/name: wordpress
+company.com/team: platform
+```
+
+**Invalid:**
+```yaml
+-app: nginx                    # Can't start with -
+app-: nginx                    # Can't end with -  
+too-long-label-key-that-exceeds-sixty-three-characters-limit: value
+```
+
+### Label Values
+
+- Max 63 characters
+- Can be empty
+- Characters: alphanumeric, `-`, `_`, `.`
+- Must start and end with alphanumeric (if non-empty)
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Labels not showing in list view">
+    Dashboard shows a limited set of common labels in list views. View the full list in the detail view or YAML tab.
+  </Accordion>
+  
+  <Accordion title="Cannot change deployment selector">
+    Deployment selectors are immutable. You must delete and recreate the deployment with a new selector.
+  </Accordion>
+  
+  <Accordion title="Service not finding pods">
+    Verify the service selector matches pod labels:
+    
+    ```bash
+    kubectl get pods -l app=nginx,tier=frontend
+    kubectl describe service nginx-service
+    ```
+  </Accordion>
+  
+  <Accordion title="Invalid label format">
+    Ensure labels follow naming conventions:
+    - Max 63 characters for name
+    - Alphanumeric, `-`, `_`, `.` only
+    - Start and end with alphanumeric
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Resources" href="/user/managing-resources">
+    Learn about resource management
+  </Card>
+  <Card title="Managing Applications" href="/user/managing-applications">
+    Deploy and manage applications
+  </Card>
+</CardGroup>

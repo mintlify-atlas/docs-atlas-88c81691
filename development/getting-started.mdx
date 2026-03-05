@@ -1,0 +1,109 @@
+---
+title: Getting Started
+description: Development overview and prerequisites for Kubernetes Dashboard
+---
+
+## Overview
+
+Kubernetes Dashboard is a web-based UI for managing Kubernetes clusters. The development environment consists of multiple interconnected modules that work together to provide a complete dashboard experience.
+
+## Architecture
+
+The Kubernetes Dashboard consists of a few main modules:
+
+- **API** — Stateless Go module, which could be referred to as a Kubernetes API extension. It provides functionalities like:
+  - Aggregation (i.e., returning metrics and events for pods)
+  - Sorting
+  - Filtering
+  - Pagination
+
+- **Auth** — Go module handling authentication to the Kubernetes API.
+
+- **Web** — Module containing web application written in Angular and Go server with some web-related logic (i.e., settings). Its main task is presenting data fetched from Kubernetes API through API module.
+
+- **Metrics Scraper** — Go module used to scrape and store a small window of metrics fetched from the Kubernetes Metrics Server.
+
+## Prerequisites
+
+Make sure the following software is installed and added to your path:
+
+- **[Docker](https://docs.docker.com/engine/install/)** - Required for building and running containers
+- **[Go](https://golang.org/dl/)** - Version **1.24.0** or higher (check [modules/go.work](~/workspace/source/modules/go.work:1) for the required version)
+- **[Node.js](https://nodejs.org/en/download)** - Version **18.14.0** or higher (check [modules/web/package.json](~/workspace/source/modules/web/package.json:11) for the required version)
+- **[Yarn](https://yarnpkg.com/getting-started/install)** - Version **3.3.0** (check [modules/web/.yarnrc.yml](~/workspace/source/modules/web/.yarnrc.yml:11) for the required version)
+
+## Quick Start
+
+After cloning the repository:
+
+1. **Install web dependencies:**
+   ```bash
+   cd modules/web && yarn
+   ```
+
+2. **Start the development version:**
+   ```bash
+   make serve
+   ```
+   
+   This will:
+   - Create a local kind cluster
+   - Run all modules with Docker Compose
+   - Make the dashboard available at http://localhost:8080
+
+<Note>
+  Make sure port 8080 is free on your localhost before running `make serve`.
+</Note>
+
+## Running Production Version
+
+To run the production version of the application:
+
+```bash
+make run
+```
+
+This will make the dashboard available at:
+- HTTPS: https://localhost:8443
+- HTTP: http://localhost:8080
+
+<Note>
+  Make sure ports 8443 and 8080 are free on your localhost.
+</Note>
+
+## Code Conventions
+
+### Go
+
+When writing new Go code, follow conventions described in [Effective Go](https://golang.org/doc/effective_go.html). The project uses [Go Report Card](https://goreportcard.com/report/github.com/kubernetes/dashboard) to monitor code quality.
+
+### Angular
+
+For Angular code, follow conventions described in:
+- [Angular Style Guide](https://angular.io/guide/styleguide)
+- [Material Design Guidelines](https://material.io/guidelines/)
+
+### Linting Tools
+
+The project uses the following tools for code quality:
+- [golangci-lint](https://github.com/golangci/golangci-lint) - Go linting
+- [eslint](https://eslint.org) - TypeScript/JavaScript linting
+- [stylelint](https://github.com/stylelint/stylelint) - CSS/SCSS linting
+- [prettier](https://prettier.io/) - Code formatting
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Local Environment" icon="laptop-code" href="./local-environment">
+    Set up your local development environment
+  </Card>
+  <Card title="Building" icon="hammer" href="./building">
+    Learn how to build the project
+  </Card>
+  <Card title="Testing" icon="vial" href="./testing">
+    Run tests and ensure code quality
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="./contributing">
+    Learn how to contribute to the project
+  </Card>
+</CardGroup>

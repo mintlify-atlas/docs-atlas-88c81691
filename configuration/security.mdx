@@ -1,0 +1,488 @@
+---
+title: Security Configuration
+description: Configure RBAC, network policies, pod security, and CSRF protection
+---
+
+Kubernetes Dashboard provides multiple layers of security configuration including RBAC, network policies, pod security contexts, and CSRF protection.
+
+## Security Context
+
+Pod and container security contexts enforce security policies at the runtime level.
+
+### Pod Security Context
+
+<ParamField path="app.security.securityContext" type="object">
+  Security context applied to all Dashboard pods.
+  
+  ```yaml
+  app:
+    security:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+  ```
+  
+  Default configuration:
+  - `runAsNonRoot: true` - Prevents running as root user
+  - `seccompProfile.type: RuntimeDefault` - Uses the default seccomp profile
+  
+  To disable, set to `null`:
+  ```yaml
+  app:
+    security:
+      securityContext: null
+  ```
+</ParamField>
+
+### Container Security Context
+
+<ParamField path="app.security.containerSecurityContext" type="object">
+  Security context applied to all Dashboard containers.
+  
+  ```yaml
+  app:
+    security:
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsUser: 1001
+        runAsGroup: 2001
+        capabilities:
+          drop: ["ALL"]
+  ```
+  
+  Default configuration:
+  - `allowPrivilegeEscalation: false` - Prevents privilege escalation
+  - `readOnlyRootFilesystem: true` - Root filesystem is read-only
+  - `runAsUser: 1001` - Runs as non-root user ID 1001
+  - `runAsGroup: 2001` - Runs as group ID 2001
+  - `capabilities.drop: ["ALL"]` - Drops all Linux capabilities
+  
+  To disable, set to `null`:
+  ```yaml
+  app:
+    security:
+      containerSecurityContext: null
+  ```
+</ParamField>
+
+## CSRF Protection
+
+Cross-Site Request Forgery (CSRF) protection is enabled by default for API and Auth modules.
+
+<ParamField path="app.security.csrfKey" type="string" default="null">
+  Base64 encoded random 256 bytes string used for CSRF protection.
+  
+  ```yaml
+  app:
+    security:
+      csrfKey: "your-base64-encoded-256-byte-key"
+  ```
+  
+  **If empty** (default): A random key is auto-generated and stored in a Secret.
+  
+  **If provided**: The specified key is used. This is useful for:
+  - Maintaining sessions across pod restarts
+  - Sharing keys across multiple Dashboard instances
+  
+  Generate a secure key:
+  ```bash
+  openssl rand -base64 256 | tr -d '\n'
+  ```
+</ParamField>
+
+The CSRF key is automatically injected into API and Auth containers via the `CSRF_KEY` environment variable.
+
+<Warning>
+  Never commit CSRF keys to version control. Use Kubernetes Secrets or external secret management solutions.
+</Warning>
+
+## Network Policy
+
+Network policies control network traffic to and from Dashboard pods.
+
+<ParamField path="app.security.networkPolicy.enabled" type="boolean" default="false">
+  Enable NetworkPolicy resource creation.
+  
+  ```yaml
+  app:
+    security:
+      networkPolicy:
+        enabled: true
+  ```
+  
+  <Info>
+    Requires a CNI plugin that supports NetworkPolicy (e.g., Calico, Cilium, Weave Net).
+  </Info>
+</ParamField>
+
+<ParamField path="app.security.networkPolicy.ingressDenyAll" type="boolean" default="false">
+  Deny all ingress traffic (useful for complete lockdown).
+  
+  ```yaml
+  app:
+    security:
+      networkPolicy:
+        enabled: true
+        ingressDenyAll: true
+  ```
+  
+  When `true`, creates an empty ingress rule that blocks all traffic.
+</ParamField>
+
+<ParamField path="app.security.networkPolicy.spec" type="object" default="{}">
+  Raw NetworkPolicy spec that overrides the predefined configuration.
+  
+  ```yaml
+  app:
+    security:
+      networkPolicy:
+        enabled: true
+        spec:
+          ingress:
+            - from:
+              - namespaceSelector:
+                  matchLabels:
+                    name: ingress-nginx
+              ports:
+                - port: web
+                  protocol: TCP
+                - port: api
+                  protocol: TCP
+          egress:
+            - to:
+              - namespaceSelector: {}
+              ports:
+                - port: 443
+                  protocol: TCP
+            - to:
+              - namespaceSelector:
+                  matchLabels:
+                    name: kube-system
+              ports:
+                - port: 53
+                  protocol: UDP
+  ```
+</ParamField>
+
+### Default Network Policy Behavior
+
+When `enabled: true` and `ingressDenyAll: false` (and no custom spec), the default policy allows:
+
+```yaml
+ingress:
+  - ports:
+    - port: web
+      protocol: TCP
+    - port: api
+      protocol: TCP
+```
+
+This allows ingress on web and api ports from any source.
+
+## Pod Disruption Budget
+
+Pod Disruption Budgets (PDB) ensure availability during voluntary disruptions.
+
+<ParamField path="app.security.podDisruptionBudget.enabled" type="boolean" default="false">
+  Enable PodDisruptionBudget creation.
+  
+  ```yaml
+  app:
+    security:
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 1
+  ```
+  
+  See [Kubernetes PDB documentation](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
+</ParamField>
+
+<ParamField path="app.security.podDisruptionBudget.minAvailable" type="number" default="0">
+  Minimum number of pods that must remain available during disruptions.
+  
+  ```yaml
+  app:
+    security:
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 2
+  ```
+  
+  Cannot be used together with `maxUnavailable`.
+</ParamField>
+
+<ParamField path="app.security.podDisruptionBudget.maxUnavailable" type="number" default="0">
+  Maximum number of pods that can be unavailable during disruptions.
+  
+  ```yaml
+  app:
+    security:
+      podDisruptionBudget:
+        enabled: true
+        maxUnavailable: 1
+  ```
+  
+  Cannot be used together with `minAvailable`.
+</ParamField>
+
+## RBAC Configuration
+
+Dashboard creates minimal RBAC resources by default. Each module has its own ServiceAccount.
+
+### API Module RBAC
+
+The API module requires permissions to proxy requests to the metrics-scraper service.
+
+**ServiceAccount**: `kubernetes-dashboard-api`
+
+**Role** (namespace-scoped):
+```yaml
+rules:
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    resourceNames:
+      - "kubernetes-dashboard-metrics-scraper"
+      - "http:kubernetes-dashboard-metrics-scraper"
+    verbs: ["get"]
+```
+
+### Metrics Scraper RBAC
+
+The metrics scraper requires cluster-wide read access to pod and node metrics.
+
+**ServiceAccount**: `kubernetes-dashboard-metrics-scraper`
+
+**ClusterRole**:
+```yaml
+rules:
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+```
+
+### Web Module RBAC
+
+**ServiceAccount**: `kubernetes-dashboard-web`
+
+**Role**: Minimal permissions (similar to API module).
+
+### Auth Module
+
+The Auth module uses the default service account and doesn't require special RBAC permissions.
+
+<Warning>
+  Dashboard does NOT create ClusterRoleBindings that grant admin access. Users authenticate with their own credentials and Dashboard impersonates their permissions.
+</Warning>
+
+## TLS Configuration
+
+Dashboard uses TLS for secure communication. TLS is handled by the Kong gateway.
+
+### Certificate Management
+
+When using cert-manager with Ingress:
+
+```yaml
+app:
+  ingress:
+    enabled: true
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster  # Use cluster-issuer
+    tls:
+      enabled: true
+      secretName: ""  # Auto-generated if empty
+```
+
+See [Ingress Configuration](/configuration/ingress) for details.
+
+### API Server TLS Verification
+
+By default, Dashboard verifies the Kubernetes API server's TLS certificate. To skip verification (not recommended for production):
+
+```yaml
+api:
+  containers:
+    args:
+      - --apiserver-skip-tls-verify=true
+
+auth:
+  containers:
+    args:
+      - --apiserver-skip-tls-verify=true
+```
+
+### Custom CA Bundle
+
+If your API server uses a custom CA:
+
+```yaml
+api:
+  containers:
+    args:
+      - --apiserver-ca-bundle=/etc/ssl/certs/ca.crt
+    volumeMounts:
+      - name: ca-cert
+        mountPath: /etc/ssl/certs
+        readOnly: true
+  volumes:
+    - name: ca-cert
+      configMap:
+        name: custom-ca-bundle
+```
+
+## Example Security Configurations
+
+### High Security Production Setup
+
+```yaml
+app:
+  security:
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      fsGroup: 2001
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsUser: 1001
+      runAsGroup: 2001
+      capabilities:
+        drop: ["ALL"]
+    networkPolicy:
+      enabled: true
+      spec:
+        ingress:
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: ingress-nginx
+            ports:
+              - port: web
+                protocol: TCP
+              - port: api
+                protocol: TCP
+        egress:
+          # Allow DNS
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+              - port: 53
+                protocol: UDP
+          # Allow Kubernetes API
+          - to:
+            - namespaceSelector: {}
+            ports:
+              - port: 443
+                protocol: TCP
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    csrfKey: "your-secure-base64-encoded-key"
+
+api:
+  scaling:
+    replicas: 2
+  containers:
+    args:
+      - --disable-csrf-protection=false
+
+web:
+  scaling:
+    replicas: 2
+```
+
+### Restrictive Network Policy
+
+```yaml
+app:
+  security:
+    networkPolicy:
+      enabled: true
+      spec:
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: kubernetes-dashboard
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          # Only allow from ingress controller
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: ingress-nginx
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ingress-nginx
+            ports:
+              - port: 8443
+                protocol: TCP
+        egress:
+          # Allow DNS lookups
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-system
+            - podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+            ports:
+              - port: 53
+                protocol: UDP
+          # Allow Kubernetes API access
+          - to:
+            - namespaceSelector: {}
+            ports:
+              - port: 443
+                protocol: TCP
+              - port: 6443
+                protocol: TCP
+```
+
+### Minimal RBAC with User Permissions
+
+Dashboard relies on user authentication and impersonation. To grant users access:
+
+```yaml
+# Example: Grant a user read-only access to specific namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dashboard-user-viewer
+  namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: User
+    name: user@example.com
+    apiGroup: rbac.authorization.k8s.io
+```
+
+Users will only see resources they have permissions for.
+
+## Security Best Practices
+
+1. **Always use HTTPS**: Enable TLS on Ingress
+2. **Enable Network Policies**: Restrict traffic to/from Dashboard
+3. **Use Pod Disruption Budgets**: Ensure availability with multiple replicas
+4. **Never disable CSRF protection** in production
+5. **Use read-only root filesystem**: Already enabled by default
+6. **Drop all capabilities**: Already configured by default
+7. **Run as non-root**: Already configured by default
+8. **Verify API server certificates**: Don't use `--apiserver-skip-tls-verify` in production
+9. **Use external secret management**: For CSRF keys and sensitive data
+10. **Grant minimal RBAC permissions**: Users should only have access to what they need
+
+## Related Configuration
+
+- [Ingress Configuration](/configuration/ingress) - TLS and cert-manager setup
+- [Arguments Reference](/configuration/arguments) - Security-related command-line arguments
+- [Helm Values Reference](/configuration/helm-values) - Complete configuration reference

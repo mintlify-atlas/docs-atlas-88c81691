@@ -1,0 +1,187 @@
+---
+title: 'API Overview'
+description: 'Kubernetes Dashboard API overview, architecture, and getting started'
+---
+
+## Introduction
+
+The Kubernetes Dashboard API is a RESTful API that provides programmatic access to Kubernetes cluster resources through a unified interface. The API acts as a proxy between clients and the Kubernetes API server, offering enhanced features like metrics aggregation, resource management, and web terminal access.
+
+## Base URL
+
+All API endpoints are prefixed with:
+
+```
+/api/v1
+```
+
+### Example
+```bash
+https://dashboard.example.com/api/v1/pod
+```
+
+## Architecture
+
+The Dashboard API consists of several key components:
+
+- **API Handler**: Core request routing and processing (`apihandler.go`)
+- **Resource Handlers**: Kubernetes resource-specific endpoints
+- **Integration Manager**: Metrics and external service integration
+- **Authentication**: Bearer token-based authentication
+- **WebSocket Support**: Real-time terminal and log streaming via SockJS
+
+## Server Configuration
+
+The API server can be configured with the following options:
+
+<ParamField path="--bind-address" type="string" default="0.0.0.0">
+  The IP address on which to serve HTTPS (set to 0.0.0.0 for all interfaces)
+</ParamField>
+
+<ParamField path="--port" type="number" default="8443">
+  The secure port to listen on for HTTPS
+</ParamField>
+
+<ParamField path="--insecure-bind-address" type="string">
+  The IP address on which to serve HTTP (disabled by default)
+</ParamField>
+
+<ParamField path="--insecure-port" type="number" default="8080">
+  The port to listen on for HTTP
+</ParamField>
+
+<ParamField path="--metrics-provider" type="string" default="sidecar">
+  Metrics provider for resource metrics (options: `sidecar`, `none`)
+</ParamField>
+
+<ParamField path="--sidecar-host" type="string">
+  The metrics-scraper sidecar host URL
+</ParamField>
+
+## OpenAPI Documentation
+
+When enabled, the API provides OpenAPI/Swagger documentation at:
+
+```
+/apidocs.json
+```
+
+Enable OpenAPI documentation with the `--enable-openapi` flag.
+
+## Common Query Parameters
+
+Many list endpoints support the following query parameters for filtering, sorting, and pagination:
+
+<ParamField query="filterBy" type="string">
+  Comma-delimited string for filtering: `propertyName,filterValue`
+  
+  **Example**: `filterBy=name,nginx`
+</ParamField>
+
+<ParamField query="sortBy" type="string">
+  Column name to sort by
+  
+  **Example**: `sortBy=creationTimestamp`
+</ParamField>
+
+<ParamField query="itemsPerPage" type="number" default="10">
+  Number of items to return per page
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="metricNames" type="string">
+  Comma-separated list of metric names to download
+  
+  **Example**: `metricNames=cpu/usage,memory/usage`
+</ParamField>
+
+<ParamField query="aggregations" type="string">
+  Aggregation methods for metrics (default: `sum`)
+  
+  **Options**: `sum`, `avg`, `min`, `max`
+</ParamField>
+
+## Response Format
+
+All API responses are in JSON format with the following general structure:
+
+### Success Response
+```json
+{
+  "listMeta": {
+    "totalItems": 100
+  },
+  "items": [...],
+  "errors": []
+}
+```
+
+### Error Response
+```json
+{
+  "status": "Failure",
+  "message": "Error message",
+  "reason": "BadRequest",
+  "code": 400
+}
+```
+
+## Content Types
+
+The API accepts and returns the following content types:
+
+- **Accept**: `application/json`
+- **Content-Type**: `application/json`
+
+## Rate Limiting
+
+The API implements client-side rate limiting with configurable QPS (queries per second) and burst settings:
+
+- Default QPS: Follows Kubernetes client-go defaults
+- Configurable via server startup parameters
+
+## CSRF Protection
+
+POST requests require CSRF token validation. Obtain a CSRF token using:
+
+```bash
+GET /api/v1/csrftoken/{action}
+```
+
+<ResponseField name="token" type="string">
+  One-time CSRF token for the specified action
+</ResponseField>
+
+Include the token in the `X-CSRF-TOKEN` header for POST requests.
+
+## Metrics Integration
+
+The API supports metrics collection through the metrics-scraper sidecar:
+
+- **CPU usage**: `cpu/usage`
+- **Memory usage**: `memory/usage`
+- **Custom metrics**: Extensible through integrations
+
+## Proxy Mode
+
+The API can run in proxy mode for development and testing, bypassing in-cluster authentication.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    Learn about API authentication mechanisms
+  </Card>
+  <Card title="Resources" icon="cube" href="/api/resources">
+    Explore Kubernetes resource endpoints
+  </Card>
+  <Card title="Handlers" icon="terminal" href="/api/handlers">
+    Discover special handlers for terminal and logs
+  </Card>
+  <Card title="Metrics" icon="chart-line" href="/api/metrics">
+    Access metrics and monitoring data
+  </Card>
+</CardGroup>

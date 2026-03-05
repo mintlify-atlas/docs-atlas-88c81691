@@ -1,0 +1,619 @@
+---
+title: Helm Values Reference
+description: Complete reference for all Helm chart configuration values
+---
+
+This page provides a comprehensive reference for all available Helm values in the Kubernetes Dashboard chart.
+
+## App Configuration
+
+Global configuration shared across all Dashboard resources.
+
+### Mode
+
+<ParamField path="app.mode" type="string" default="dashboard">
+  Deployment mode for the chart:
+  - `dashboard` - deploys all containers (API, Web, Auth, Metrics Scraper)
+  - `api` - deploys only the API container
+</ParamField>
+
+### Image Settings
+
+<ParamField path="app.image.pullPolicy" type="string" default="IfNotPresent">
+  Image pull policy for all containers.
+</ParamField>
+
+<ParamField path="app.image.pullSecrets" type="array" default="[]">
+  List of image pull secret names for private registries.
+  
+  ```yaml
+  app:
+    image:
+      pullSecrets:
+        - my-registry-secret
+  ```
+</ParamField>
+
+### Scheduling
+
+<ParamField path="app.scheduling.nodeSelector" type="object" default="{}">
+  Node labels for pod assignment. Applies to all Dashboard pods.
+  
+  ```yaml
+  app:
+    scheduling:
+      nodeSelector:
+        disktype: ssd
+        environment: production
+  ```
+  
+  See [Kubernetes documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/) for details.
+</ParamField>
+
+<ParamField path="app.tolerations" type="array" default="[]">
+  Tolerations for pod assignment. Useful for deploying on tainted nodes.
+  
+  ```yaml
+  app:
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+  ```
+</ParamField>
+
+<ParamField path="app.affinity" type="object" default="{}">
+  Affinity rules for pod scheduling.
+</ParamField>
+
+### Labels and Annotations
+
+<ParamField path="app.labels" type="object" default="{}">
+  Common labels shared across all deployed resources.
+</ParamField>
+
+<ParamField path="app.annotations" type="object" default="{}">
+  Common annotations shared across all deployed resources.
+</ParamField>
+
+<ParamField path="app.priorityClassName" type="string" default="null">
+  Priority class name for all deployed pods.
+</ParamField>
+
+## API Module
+
+Configuration for the Dashboard API backend.
+
+<ParamField path="api.role" type="string" default="api">
+  Role name for the API component.
+</ParamField>
+
+<ParamField path="api.image.repository" type="string" default="docker.io/kubernetesui/dashboard-api">
+  Container image repository for the API module.
+</ParamField>
+
+<ParamField path="api.image.tag" type="string" default="1.14.0">
+  Container image tag for the API module.
+</ParamField>
+
+### Scaling
+
+<ParamField path="api.scaling.replicas" type="number" default="1">
+  Number of API pod replicas.
+</ParamField>
+
+<ParamField path="api.scaling.revisionHistoryLimit" type="number" default="10">
+  Number of old ReplicaSets to retain for rollback.
+</ParamField>
+
+### Service
+
+<ParamField path="api.service.type" type="string" default="ClusterIP">
+  Kubernetes service type for the API.
+</ParamField>
+
+<ParamField path="api.service.extraSpec" type="object" default="null">
+  Additional service spec configuration.
+</ParamField>
+
+### Container Configuration
+
+<ParamField path="api.containers.ports" type="array">
+  Container port configuration.
+  
+  ```yaml
+  api:
+    containers:
+      ports:
+        - name: api
+          containerPort: 8000
+          protocol: TCP
+  ```
+</ParamField>
+
+<ParamField path="api.containers.args" type="array" default="[]">
+  Additional command-line arguments for the API container.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --system-banner="Welcome to Kubernetes Dashboard"
+        - --openapi-enabled=true
+  ```
+  
+  See [Arguments Reference](/configuration/arguments) for all available options.
+</ParamField>
+
+<ParamField path="api.containers.env" type="array" default="[]">
+  Additional environment variables for the API container.
+  
+  ```yaml
+  api:
+    containers:
+      env:
+        - name: SOME_VAR
+          value: 'some value'
+  ```
+</ParamField>
+
+<ParamField path="api.containers.volumeMounts" type="array">
+  Volume mounts for the API container.
+  
+  ```yaml
+  api:
+    containers:
+      volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+        - mountPath: /kubeconfig
+          name: dashboard-kubeconfig
+          readOnly: true
+  ```
+</ParamField>
+
+<ParamField path="api.containers.resources" type="object">
+  Resource requests and limits for the API container.
+  
+  ```yaml
+  api:
+    containers:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 200Mi
+        limits:
+          cpu: 250m
+          memory: 400Mi
+  ```
+</ParamField>
+
+### Volumes and Service Account
+
+<ParamField path="api.volumes" type="array">
+  Additional volumes for API pods.
+  
+  ```yaml
+  api:
+    volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: dashboard-kubeconfig
+        secret:
+          defaultMode: 420
+          secretName: dashboard-kubeconfig
+  ```
+</ParamField>
+
+<ParamField path="api.automountServiceAccountToken" type="boolean" default="true">
+  Whether to automatically mount service account token.
+</ParamField>
+
+<ParamField path="api.nodeSelector" type="object" default="{}">
+  Node selector specific to API pods (merged with `app.scheduling.nodeSelector`).
+</ParamField>
+
+<ParamField path="api.labels" type="object" default="{}">
+  Additional labels for API resources.
+</ParamField>
+
+<ParamField path="api.annotations" type="object" default="{}">
+  Additional annotations for API resources.
+</ParamField>
+
+<ParamField path="api.serviceLabels" type="object" default="{}">
+  Additional labels for the API service.
+</ParamField>
+
+<ParamField path="api.serviceAnnotations" type="object" default="{}">
+  Additional annotations for the API service.
+</ParamField>
+
+## Auth Module
+
+Configuration for the authentication service.
+
+<ParamField path="auth.role" type="string" default="auth">
+  Role name for the Auth component.
+</ParamField>
+
+<ParamField path="auth.image.repository" type="string" default="docker.io/kubernetesui/dashboard-auth">
+  Container image repository for the Auth module.
+</ParamField>
+
+<ParamField path="auth.image.tag" type="string" default="1.4.0">
+  Container image tag for the Auth module.
+</ParamField>
+
+### Scaling
+
+<ParamField path="auth.scaling.replicas" type="number" default="1">
+  Number of Auth pod replicas.
+</ParamField>
+
+<ParamField path="auth.scaling.revisionHistoryLimit" type="number" default="10">
+  Number of old ReplicaSets to retain for rollback.
+</ParamField>
+
+### Service and Container Configuration
+
+<ParamField path="auth.service.type" type="string" default="ClusterIP">
+  Kubernetes service type for Auth.
+</ParamField>
+
+<ParamField path="auth.containers.ports" type="array">
+  Container port configuration.
+  
+  ```yaml
+  auth:
+    containers:
+      ports:
+        - name: auth
+          containerPort: 8000
+          protocol: TCP
+  ```
+</ParamField>
+
+<ParamField path="auth.containers.args" type="array" default="[]">
+  Additional command-line arguments. See [Arguments Reference](/configuration/arguments).
+</ParamField>
+
+<ParamField path="auth.containers.env" type="array" default="[]">
+  Additional environment variables.
+</ParamField>
+
+<ParamField path="auth.containers.resources" type="object">
+  Resource requests and limits.
+  
+  ```yaml
+  auth:
+    containers:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 200Mi
+        limits:
+          cpu: 250m
+          memory: 400Mi
+  ```
+</ParamField>
+
+## Web Module
+
+Configuration for the web UI frontend.
+
+<ParamField path="web.role" type="string" default="web">
+  Role name for the Web component.
+</ParamField>
+
+<ParamField path="web.image.repository" type="string" default="docker.io/kubernetesui/dashboard-web">
+  Container image repository for the Web module.
+</ParamField>
+
+<ParamField path="web.image.tag" type="string" default="1.7.0">
+  Container image tag for the Web module.
+</ParamField>
+
+### Scaling
+
+<ParamField path="web.scaling.replicas" type="number" default="1">
+  Number of Web pod replicas.
+</ParamField>
+
+<ParamField path="web.scaling.revisionHistoryLimit" type="number" default="10">
+  Number of old ReplicaSets to retain for rollback.
+</ParamField>
+
+### Container Configuration
+
+<ParamField path="web.containers.args" type="array" default="[]">
+  Additional command-line arguments.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --system-banner="Production Cluster"
+        - --system-banner-severity=WARNING
+  ```
+  
+  See [Arguments Reference](/configuration/arguments) for all available options.
+</ParamField>
+
+<ParamField path="web.containers.resources" type="object">
+  Resource requests and limits.
+  
+  ```yaml
+  web:
+    containers:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 200Mi
+        limits:
+          cpu: 250m
+          memory: 400Mi
+  ```
+</ParamField>
+
+## Metrics Scraper
+
+Container to scrape, store, and retrieve metrics from the Metrics Server.
+
+<ParamField path="metricsScraper.enabled" type="boolean" default="true">
+  Enable the metrics scraper component.
+</ParamField>
+
+<ParamField path="metricsScraper.role" type="string" default="metrics-scraper">
+  Role name for the Metrics Scraper component.
+</ParamField>
+
+<ParamField path="metricsScraper.image.repository" type="string" default="docker.io/kubernetesui/dashboard-metrics-scraper">
+  Container image repository.
+</ParamField>
+
+<ParamField path="metricsScraper.image.tag" type="string" default="1.2.2">
+  Container image tag.
+</ParamField>
+
+### Scaling and Resources
+
+<ParamField path="metricsScraper.scaling.replicas" type="number" default="1">
+  Number of pod replicas.
+</ParamField>
+
+<ParamField path="metricsScraper.containers.args" type="array" default="[]">
+  Additional command-line arguments. See [Arguments Reference](/configuration/arguments).
+</ParamField>
+
+<ParamField path="metricsScraper.containers.livenessProbe" type="object">
+  Liveness probe configuration.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      livenessProbe:
+        httpGet:
+          scheme: HTTP
+          path: /
+          port: 8000
+        initialDelaySeconds: 30
+        timeoutSeconds: 30
+  ```
+</ParamField>
+
+<ParamField path="metricsScraper.containers.resources" type="object">
+  Resource requests and limits.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 200Mi
+        limits:
+          cpu: 250m
+          memory: 400Mi
+  ```
+</ParamField>
+
+## Sub-Charts
+
+### Kong Gateway
+
+<ParamField path="kong.enabled" type="boolean" default="true">
+  Enable Kong gateway as an API gateway for all containers.
+</ParamField>
+
+<ParamField path="kong.env" type="object">
+  Kong configuration environment variables.
+  
+  ```yaml
+  kong:
+    env:
+      dns_order: LAST,A,CNAME,AAAA,SRV
+      plugins: 'off'
+      nginx_worker_processes: 1
+  ```
+  
+  See [Kong Configuration Reference](https://docs.konghq.com/gateway/3.6.x/reference/configuration).
+</ParamField>
+
+<ParamField path="kong.ingressController.enabled" type="boolean" default="false">
+  Enable Kong ingress controller.
+</ParamField>
+
+<ParamField path="kong.proxy.type" type="string" default="ClusterIP">
+  Service type for Kong proxy.
+</ParamField>
+
+<ParamField path="kong.proxy.http.enabled" type="boolean" default="false">
+  Enable HTTP on Kong proxy (HTTPS is used by default).
+</ParamField>
+
+### Metrics Server
+
+<ParamField path="metrics-server.enabled" type="boolean" default="false">
+  Enable metrics-server sub-chart. Only enable if you don't have metrics-server in your cluster.
+</ParamField>
+
+<ParamField path="metrics-server.args" type="array">
+  Arguments for metrics-server.
+  
+  ```yaml
+  metrics-server:
+    enabled: true
+    args:
+      - --kubelet-preferred-address-types=InternalIP
+      - --kubelet-insecure-tls
+  ```
+  
+  See [metrics-server documentation](https://github.com/kubernetes-sigs/metrics-server).
+</ParamField>
+
+### Cert Manager
+
+<ParamField path="cert-manager.enabled" type="boolean" default="false">
+  Enable cert-manager sub-chart. Only enable if cert-manager is not installed in your cluster.
+</ParamField>
+
+<ParamField path="cert-manager.installCRDs" type="boolean" default="true">
+  Install cert-manager CRDs.
+</ParamField>
+
+### Nginx Ingress
+
+<ParamField path="nginx.enabled" type="boolean" default="false">
+  Enable nginx-ingress sub-chart. Only enable if you don't have an ingress controller.
+</ParamField>
+
+<ParamField path="nginx.controller.ingressClassResource.name" type="string" default="internal-nginx">
+  Name of the IngressClass resource.
+</ParamField>
+
+<ParamField path="nginx.controller.service.type" type="string" default="ClusterIP">
+  Service type for nginx ingress controller.
+</ParamField>
+
+## Extras
+
+### Custom Manifests
+
+<ParamField path="extras.manifests" type="array" default="[]">
+  Extra Kubernetes manifests to deploy alongside Dashboard.
+  
+  ```yaml
+  extras:
+    manifests:
+      - apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: additional-configmap
+        data:
+          mykey: myvalue
+  ```
+</ParamField>
+
+### Service Monitor
+
+<ParamField path="extras.serviceMonitor.enabled" type="boolean" default="false">
+  Create a Prometheus Operator ServiceMonitor resource.
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.labels" type="object" default="{}">
+  Labels to add to the ServiceMonitor.
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.annotations" type="object" default="{}">
+  Annotations to add to the ServiceMonitor.
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.scheme" type="string" default="https">
+  ServiceMonitor connection scheme.
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.tlsConfig" type="object">
+  TLS configuration for ServiceMonitor.
+  
+  ```yaml
+  extras:
+    serviceMonitor:
+      enabled: true
+      tlsConfig:
+        insecureSkipVerify: true
+  ```
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.metricRelabelings" type="array" default="[]">
+  Metric relabelings for the scrape endpoint. See [Prometheus documentation](https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#relabelconfig).
+</ParamField>
+
+<ParamField path="extras.serviceMonitor.relabelings" type="array" default="[]">
+  Prometheus relabeling rules.
+</ParamField>
+
+## Example Configuration
+
+Here's a complete example with common customizations:
+
+```yaml
+app:
+  mode: dashboard
+  ingress:
+    enabled: true
+    hosts:
+      - dashboard.example.com
+    ingressClassName: nginx
+    issuer:
+      name: letsencrypt-prod
+      scope: cluster
+  settings:
+    global:
+      clusterName: "Production Cluster"
+      itemsPerPage: 20
+      resourceAutoRefreshTimeInterval: 15
+  security:
+    networkPolicy:
+      enabled: true
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+
+api:
+  scaling:
+    replicas: 2
+  containers:
+    args:
+      - --openapi-enabled=true
+      - --prometheus-enabled=true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 400Mi
+      limits:
+        cpu: 500m
+        memory: 800Mi
+
+web:
+  scaling:
+    replicas: 2
+  containers:
+    args:
+      - --system-banner="Production Environment"
+      - --system-banner-severity=WARNING
+
+metricsScraper:
+  enabled: true
+
+extras:
+  serviceMonitor:
+    enabled: true
+    labels:
+      prometheus: kube-prometheus
+```
+
+See the individual configuration pages for more details:
+- [Settings Configuration](/configuration/settings)
+- [Security Configuration](/configuration/security)
+- [Ingress Configuration](/configuration/ingress)
+- [Arguments Reference](/configuration/arguments)

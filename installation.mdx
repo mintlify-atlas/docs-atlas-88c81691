@@ -1,0 +1,357 @@
+---
+title: Installation
+description: Detailed guide for installing Kubernetes Dashboard using Helm
+---
+
+<Warning>
+  **Project Archived**: This project is now archived and no longer maintained. Please consider using [Headlamp](https://github.com/kubernetes-sigs/headlamp) for new deployments.
+</Warning>
+
+## Overview
+
+Kubernetes Dashboard supports only Helm-based installation as of version 7.0.0. Helm provides better control over dependencies and makes it easier to manage the multi-container setup required by Dashboard.
+
+## Prerequisites
+
+Before installing Kubernetes Dashboard, ensure you have:
+
+<Steps>
+  <Step title="Kubernetes Cluster">
+    A running Kubernetes cluster with version **1.21.0 or higher**.
+    
+    Verify your cluster version:
+    ```bash
+    kubectl version --short
+    ```
+  </Step>
+  
+  <Step title="Helm 3">
+    Helm 3 installed on your local machine.
+    
+    Check your Helm version:
+    ```bash
+    helm version
+    ```
+    
+    <Note>
+      Helm 2 is no longer supported. If you're using Helm 2, follow the [migration guide](https://helm.sh/blog/migrate-from-helm-v2-to-helm-v3/).
+    </Note>
+  </Step>
+  
+  <Step title="kubectl Access">
+    `kubectl` configured with access to your cluster and permissions to create namespaces and resources.
+    
+    Verify cluster access:
+    ```bash
+    kubectl cluster-info
+    ```
+  </Step>
+</Steps>
+
+## Quick Installation
+
+The fastest way to install Kubernetes Dashboard:
+
+```bash
+# Add kubernetes-dashboard repository
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+
+# Deploy a Helm Release named "kubernetes-dashboard" using the kubernetes-dashboard chart
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+```
+
+<Note>
+  This command will:
+  - Create the `kubernetes-dashboard` namespace if it doesn't exist
+  - Install or upgrade the Dashboard release
+  - Use default configuration values
+</Note>
+
+## Step-by-Step Installation
+
+<Steps>
+  <Step title="Add the Helm Repository">
+    Add the official Kubernetes Dashboard Helm repository:
+    
+    ```bash
+    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+    ```
+    
+    Update your local Helm chart repository cache:
+    
+    ```bash
+    helm repo update
+    ```
+  </Step>
+  
+  <Step title="(Optional) Review Available Versions">
+    Check available chart versions:
+    
+    ```bash
+    helm search repo kubernetes-dashboard --versions
+    ```
+    
+    The latest stable version is **7.14.0**.
+  </Step>
+  
+  <Step title="(Optional) Customize Installation">
+    Download the default values file to customize your installation:
+    
+    ```bash
+    helm show values kubernetes-dashboard/kubernetes-dashboard > values.yaml
+    ```
+    
+    Edit `values.yaml` to customize settings like:
+    - Resource limits and requests
+    - Ingress configuration
+    - Security settings
+    - Optional dependencies (cert-manager, ingress-nginx, metrics-server)
+  </Step>
+  
+  <Step title="Install the Chart">
+    Install Dashboard with default settings:
+    
+    ```bash
+    helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --create-namespace \
+      --namespace kubernetes-dashboard
+    ```
+    
+    Or with custom values:
+    
+    ```bash
+    helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --create-namespace \
+      --namespace kubernetes-dashboard \
+      -f values.yaml
+    ```
+  </Step>
+</Steps>
+
+## Architecture Components
+
+The Helm chart deploys the following components:
+
+<AccordionGroup>
+  <Accordion title="Core Dashboard Components">
+    - **Web UI** (`kubernetesui/dashboard-web:1.7.0`): Frontend interface
+    - **API Server** (`kubernetesui/dashboard-api:1.14.0`): Backend API
+    - **Auth Service** (`kubernetesui/dashboard-auth:1.4.0`): Authentication handler
+    - **Kong Gateway** (v2.52.0): API gateway in DBless mode
+  </Accordion>
+  
+  <Accordion title="Optional Components">
+    - **Metrics Scraper** (`kubernetesui/dashboard-metrics-scraper:1.2.2`): Enabled by default
+    - **Metrics Server** (v3.13.0): Disabled by default, enable if not already in cluster
+    - **Cert Manager** (v1.19.1): Disabled by default, required for TLS certificates
+    - **Ingress NGINX** (v4.13.3): Disabled by default, for ingress support
+  </Accordion>
+</AccordionGroup>
+
+## Configuration Options
+
+### Enable Optional Dependencies
+
+If you don't have these components already installed in your cluster:
+
+<CodeGroup>
+
+```bash Enable Metrics Server
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set metrics-server.enabled=true
+```
+
+```bash Enable Cert Manager
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set cert-manager.enabled=true \
+  --set cert-manager.installCRDs=true
+```
+
+```bash Enable Ingress NGINX
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set nginx.enabled=true
+```
+
+```bash Enable All Optional Components
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set metrics-server.enabled=true \
+  --set cert-manager.enabled=true \
+  --set cert-manager.installCRDs=true \
+  --set nginx.enabled=true
+```
+
+</CodeGroup>
+
+### Configure Ingress
+
+Enable and configure Ingress for external access:
+
+```bash
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set app.ingress.enabled=true \
+  --set app.ingress.hosts[0]=dashboard.example.com \
+  --set app.ingress.ingressClassName=nginx
+```
+
+### Resource Limits
+
+Adjust resource limits for production deployments:
+
+```bash
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace \
+  --namespace kubernetes-dashboard \
+  --set api.containers.resources.limits.cpu=500m \
+  --set api.containers.resources.limits.memory=512Mi \
+  --set web.containers.resources.limits.cpu=500m \
+  --set web.containers.resources.limits.memory=512Mi
+```
+
+## Verification
+
+Verify the installation was successful:
+
+<Steps>
+  <Step title="Check Pod Status">
+    Ensure all pods are running:
+    
+    ```bash
+    kubectl get pods -n kubernetes-dashboard
+    ```
+    
+    Expected output (with default configuration):
+    ```
+    NAME                                                   READY   STATUS    RESTARTS   AGE
+    kubernetes-dashboard-api-xxxxx                         1/1     Running   0          2m
+    kubernetes-dashboard-auth-xxxxx                        1/1     Running   0          2m
+    kubernetes-dashboard-kong-xxxxx                        1/1     Running   0          2m
+    kubernetes-dashboard-metrics-scraper-xxxxx             1/1     Running   0          2m
+    kubernetes-dashboard-web-xxxxx                         1/1     Running   0          2m
+    ```
+  </Step>
+  
+  <Step title="Check Services">
+    Verify services are created:
+    
+    ```bash
+    kubectl get svc -n kubernetes-dashboard
+    ```
+    
+    Look for the `kubernetes-dashboard-kong-proxy` service, which is the main entry point.
+  </Step>
+  
+  <Step title="View Helm Release">
+    Check the Helm release status:
+    
+    ```bash
+    helm list -n kubernetes-dashboard
+    ```
+  </Step>
+</Steps>
+
+## Common Installation Issues
+
+<AccordionGroup>
+  <Accordion title="Pods stuck in Pending state">
+    **Cause**: Insufficient cluster resources or persistent volume claims not bound.
+    
+    **Solution**:
+    1. Check pod events: `kubectl describe pod <pod-name> -n kubernetes-dashboard`
+    2. Ensure your cluster has enough CPU and memory
+    3. For PVC issues, verify storage classes are available
+  </Accordion>
+  
+  <Accordion title="CrashLoopBackOff errors">
+    **Cause**: Configuration issues or incompatible Kubernetes version.
+    
+    **Solution**:
+    1. Check pod logs: `kubectl logs <pod-name> -n kubernetes-dashboard`
+    2. Verify Kubernetes version is >= 1.21.0
+    3. Review custom values for configuration errors
+  </Accordion>
+  
+  <Accordion title="ImagePullBackOff errors">
+    **Cause**: Cannot pull container images from Docker Hub.
+    
+    **Solution**:
+    1. Check network connectivity to Docker Hub
+    2. Verify image pull secrets if using a private registry
+    3. Check for rate limiting issues with Docker Hub
+  </Accordion>
+  
+  <Accordion title="Dependency conflicts">
+    **Cause**: cert-manager, nginx, or metrics-server already installed with different versions.
+    
+    **Solution**:
+    Disable the conflicting dependencies:
+    ```bash
+    helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --create-namespace \
+      --namespace kubernetes-dashboard \
+      --set nginx.enabled=false \
+      --set cert-manager.enabled=false \
+      --set metrics-server.enabled=false
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Uninstalling Dashboard
+
+To completely remove Kubernetes Dashboard:
+
+```bash
+# Delete the Helm release
+helm delete kubernetes-dashboard --namespace kubernetes-dashboard
+
+# Delete the namespace (optional)
+kubectl delete namespace kubernetes-dashboard
+```
+
+<Warning>
+  This will permanently delete all Dashboard data and configurations. Ensure you have backups if needed.
+</Warning>
+
+## Upgrading
+
+To upgrade to a newer version:
+
+```bash
+# Update repository
+helm repo update
+
+# Upgrade the release
+helm upgrade kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --namespace kubernetes-dashboard
+```
+
+<Note>
+  Major version upgrades (e.g., 6.x to 7.x) may require manual intervention. Always check the [Helm chart README](https://github.com/kubernetes/dashboard/blob/master/charts/kubernetes-dashboard/README.md) for upgrade notes.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Access Dashboard" icon="door-open" href="/accessing-dashboard">
+    Learn different methods to access your Dashboard installation
+  </Card>
+  
+  <Card title="Configure Access Control" icon="shield-halved">
+    Set up authentication and authorization for your users
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Helm Chart on ArtifactHub](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard)
+- [Chart Values Reference](https://github.com/kubernetes/dashboard/blob/master/charts/kubernetes-dashboard/values.yaml)
+- [GitHub Repository](https://github.com/kubernetes/dashboard)

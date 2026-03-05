@@ -1,0 +1,406 @@
+---
+title: Managing Resources
+description: View, create, edit, and delete Kubernetes resources through the Dashboard
+---
+
+Kubernetes Dashboard provides comprehensive resource management capabilities for all Kubernetes resource types. This guide covers how to interact with pods, services, config maps, and other cluster resources.
+
+## Resource Categories
+
+Dashboard organizes resources into logical categories:
+
+### Workloads
+
+Manage application workloads and compute resources:
+
+- **Pods**: Individual container instances
+- **Deployments**: Declarative application deployments
+- **StatefulSets**: Stateful application management
+- **DaemonSets**: Node-level daemon processes
+- **ReplicaSets**: Pod replica management
+- **ReplicationControllers**: Legacy replica management
+- **Jobs**: Run-to-completion tasks
+- **CronJobs**: Scheduled tasks
+
+### Discovery and Load Balancing
+
+Network services and ingress:
+
+- **Services**: Stable network endpoints
+- **Ingresses**: HTTP/HTTPS routing rules
+- **Ingress Classes**: Ingress controller configuration
+
+### Config and Storage
+
+Configuration and data persistence:
+
+- **ConfigMaps**: Configuration data
+- **Secrets**: Sensitive information
+- **PersistentVolumeClaims**: Storage requests
+- **StorageClasses**: Dynamic provisioning policies
+
+### Cluster Resources
+
+Cluster-wide configuration:
+
+- **Namespaces**: Virtual cluster isolation
+- **Nodes**: Cluster compute nodes
+- **PersistentVolumes**: Available storage
+- **Roles**: Namespace-scoped permissions
+- **ClusterRoles**: Cluster-wide permissions
+- **ServiceAccounts**: Pod identity and authentication
+
+<Info>
+All resource types are defined in `modules/api/pkg/resource/` with dedicated handlers for list, detail, and CRUD operations.
+</Info>
+
+## Viewing Resources
+
+### List View
+
+Navigate to any resource category to see a comprehensive list view:
+
+- **Search**: Filter resources by name
+- **Namespace Filter**: Show resources from specific namespaces
+- **Status Indicators**: Visual health and status information
+- **Metrics**: CPU and memory usage (when metrics-server is available)
+
+### Detail View
+
+Click any resource to view detailed information:
+
+<Tabs>
+  <Tab title="Overview">
+    - Resource metadata (name, namespace, labels, annotations)
+    - Status and conditions
+    - Resource version and creation timestamp
+    - Owner references
+  </Tab>
+  
+  <Tab title="Events">
+    - Recent events related to the resource
+    - Warning and error messages
+    - State transitions
+  </Tab>
+  
+  <Tab title="YAML">
+    - Full resource definition
+    - Edit capability
+    - Download option
+  </Tab>
+</Tabs>
+
+## Managing Pods
+
+Pods are the fundamental compute unit in Kubernetes.
+
+### Pod Information
+
+The pod detail view provides (`modules/api/pkg/resource/pod/list.go:54-81`):
+
+```go
+type Pod struct {
+    ObjectMeta        types.ObjectMeta
+    TypeMeta          types.TypeMeta
+    Status            string
+    RestartCount      int32
+    Metrics           *PodMetrics
+    Warnings          []common.Event
+    NodeName          string
+    ContainerImages   []string
+    ContainerStatuses []ContainerStatus
+    AllocatedResources PodAllocatedResources
+}
+```
+
+### Pod Status
+
+Possible pod states:
+
+- **Running**: All containers are running
+- **Pending**: Waiting for scheduling or image pull
+- **Succeeded**: All containers completed successfully
+- **Failed**: At least one container failed
+- **Unknown**: Pod status cannot be determined
+
+### Pod Actions
+
+<CardGroup cols={2}>
+  <Card title="View Logs" icon="file-lines">
+    Access container logs with filtering and download options
+  </Card>
+  <Card title="Exec Shell" icon="terminal">
+    Open an interactive shell session in any container
+  </Card>
+  <Card title="Edit" icon="pen">
+    Modify pod configuration (creates new pod)
+  </Card>
+  <Card title="Delete" icon="trash">
+    Remove the pod from the cluster
+  </Card>
+</CardGroup>
+
+### Resource Allocation
+
+View CPU and memory requests/limits:
+
+```go
+type PodAllocatedResources struct {
+    CPURequests    int64  // Allocated millicores
+    CPULimits      int64  // CPU limit
+    MemoryRequests int64  // Memory allocated
+    MemoryLimits   int64  // Memory limit
+    GPURequests    []GPUAllocation
+    GPULimits      []GPUAllocation
+}
+```
+
+<Tip>
+Dashboard supports NVIDIA, AMD, and Intel GPU allocations for AI/ML workloads.
+</Tip>
+
+## Managing Services
+
+Services provide stable networking for your applications.
+
+### Service Types
+
+<Tabs>
+  <Tab title="ClusterIP">
+    Exposes the service on an internal cluster IP. Only accessible within the cluster.
+    
+    ```yaml
+    spec:
+      type: ClusterIP
+      clusterIP: 10.96.0.1
+    ```
+  </Tab>
+  
+  <Tab title="NodePort">
+    Exposes the service on each node's IP at a static port.
+    
+    ```yaml
+    spec:
+      type: NodePort
+      ports:
+      - port: 80
+        nodePort: 30080
+    ```
+  </Tab>
+  
+  <Tab title="LoadBalancer">
+    Provisions an external load balancer (cloud provider integration required).
+    
+    ```yaml
+    spec:
+      type: LoadBalancer
+    ```
+  </Tab>
+  
+  <Tab title="ExternalName">
+    Maps the service to a DNS name.
+    
+    ```yaml
+    spec:
+      type: ExternalName
+      externalName: my.database.example.com
+    ```
+  </Tab>
+</Tabs>
+
+### Service Details
+
+The service view shows (`modules/api/pkg/resource/service/list.go:28-50`):
+
+```go
+type Service struct {
+    ObjectMeta        types.ObjectMeta
+    TypeMeta          types.TypeMeta
+    InternalEndpoint  common.Endpoint
+    ExternalEndpoints []common.Endpoint
+    Selector          map[string]string
+    Type              v1.ServiceType
+    ClusterIP         string
+}
+```
+
+- **Endpoints**: Internal and external access points
+- **Selectors**: Label selectors for pod targeting
+- **Ports**: Port mappings and protocols
+
+## Managing ConfigMaps and Secrets
+
+### ConfigMaps
+
+Store non-sensitive configuration data:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  database.host: "postgres.default.svc"
+  database.port: "5432"
+```
+
+<Steps>
+  <Step title="Create ConfigMap">
+    Navigate to **Config and Storage** → **Config Maps** → **Create**
+  </Step>
+  
+  <Step title="Add Data">
+    Enter key-value pairs or upload configuration files
+  </Step>
+  
+  <Step title="Save">
+    Click **Create** to store the configuration
+  </Step>
+</Steps>
+
+### Secrets
+
+Store sensitive data like passwords and API keys:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+data:
+  username: YWRtaW4=  # base64 encoded
+  password: cGFzc3dvcmQ=
+```
+
+<Warning>
+Dashboard displays secrets in base64-decoded format. Ensure you have appropriate RBAC permissions to prevent unauthorized access.
+</Warning>
+
+## Managing Storage
+
+### PersistentVolumeClaims (PVCs)
+
+Request storage resources:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+```
+
+### StorageClasses
+
+Define storage provisioning policies:
+
+- **Provisioner**: Storage backend (AWS EBS, GCE PD, etc.)
+- **Parameters**: Provider-specific configuration
+- **Reclaim Policy**: What happens when PVC is deleted
+- **Volume Binding Mode**: Immediate or WaitForFirstConsumer
+
+## Editing Resources
+
+Dashboard provides inline YAML editing:
+
+<Steps>
+  <Step title="Navigate to Resource">
+    Open the detail view of any resource
+  </Step>
+  
+  <Step title="Click Edit">
+    Click the **Edit** button in the action bar
+  </Step>
+  
+  <Step title="Modify YAML">
+    Make changes to the resource definition
+  </Step>
+  
+  <Step title="Apply Changes">
+    Click **Update** to apply modifications
+  </Step>
+</Steps>
+
+<Warning>
+Some resource fields are immutable after creation. Dashboard validates edits and displays appropriate errors.
+</Warning>
+
+## Deleting Resources
+
+<Steps>
+  <Step title="Select Resources">
+    Check the boxes next to resources you want to delete
+  </Step>
+  
+  <Step title="Click Delete">
+    Click the delete icon in the action bar
+  </Step>
+  
+  <Step title="Confirm">
+    Confirm the deletion in the dialog prompt
+  </Step>
+</Steps>
+
+<Warning>
+**Deletion is permanent and cannot be undone.** Ensure you have backups before deleting critical resources.
+</Warning>
+
+## Filtering and Searching
+
+Dashboard provides powerful filtering capabilities:
+
+- **Namespace Filter**: Show resources from one or all namespaces
+- **Text Search**: Filter by resource name
+- **Label Selector**: Filter by label key-value pairs
+- **Status Filter**: Show only healthy, warning, or error resources
+
+## Resource Metrics
+
+When metrics-server is installed, Dashboard displays:
+
+- **CPU Usage**: Current CPU consumption
+- **Memory Usage**: Current memory consumption
+- **Historical Charts**: Time-series graphs
+- **Sparklines**: Quick visual indicators in list views
+
+<Info>
+Learn more about metrics in [Monitoring and Metrics](/user/monitoring-metrics).
+</Info>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use labels for organization">
+    Apply consistent labels to resources for better filtering and selection.
+  </Accordion>
+  
+  <Accordion title="Set resource quotas">
+    Prevent resource exhaustion by configuring namespace resource quotas.
+  </Accordion>
+  
+  <Accordion title="Regular cleanup">
+    Remove unused resources to reduce clutter and costs.
+  </Accordion>
+  
+  <Accordion title="Monitor resource health">
+    Regularly check events and status conditions for issues.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Viewing Logs" href="/user/viewing-logs">
+    Learn how to access and filter container logs
+  </Card>
+  <Card title="Shell Access" href="/user/shell-access">
+    Execute commands in running containers
+  </Card>
+</CardGroup>

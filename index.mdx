@@ -1,97 +1,150 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#326ce5] via-[#0047bb] to-[#001f54] dark:from-[#0047bb] dark:via-[#001f54] dark:to-[#000a1f] py-20 lg:py-24">
+  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnoiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLW9wYWNpdHk9Ii4wNSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9nPjwvc3ZnPg==')] opacity-10"></div>
+  
+  <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div className="max-w-4xl">
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+        Kubernetes Dashboard Documentation
+      </h1>
+      <p className="text-xl text-white/90 mb-8 max-w-2xl">
+        A general-purpose web UI for Kubernetes clusters. Manage applications, troubleshoot issues, and control your cluster resources through an intuitive interface.
+      </p>
+      <div className="flex flex-wrap gap-4">
+        <a 
+          href="/installation" 
+          className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#326ce5] font-semibold hover:bg-gray-100 transition-colors"
+        >
+          Get Started
+        </a>
+        <a 
+          href="/architecture/overview" 
+          className="inline-flex items-center px-6 py-3 rounded-lg border-2 border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors"
+        >
+          View Architecture
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick Start</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Get Kubernetes Dashboard up and running in minutes with Helm.</p>
+  
+  <Steps>
+    <Step title="Add the Helm repository">
+      Add the Kubernetes Dashboard Helm repository to your local Helm installation.
+      
+      ```bash
+      helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+      ```
+    </Step>
+    
+    <Step title="Install the Dashboard">
+      Deploy Kubernetes Dashboard using Helm. This creates a namespace and installs all required components.
+      
+      ```bash
+      helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+        --create-namespace --namespace kubernetes-dashboard
+      ```
+      
+      <Note>The Dashboard uses Kong Gateway as an API proxy and requires Kubernetes 1.21 or later.</Note>
+    </Step>
+    
+    <Step title="Access the Dashboard">
+      Set up port forwarding to access the Dashboard UI locally.
+      
+      ```bash
+      kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
+      ```
+      
+      Open your browser to [https://localhost:8443](https://localhost:8443) and log in with your credentials.
+      
+      <Accordion title="Need help with authentication?">
+        See our [authentication guide](/user/authentication) for instructions on creating service accounts and obtaining bearer tokens.
+      </Accordion>
+    </Step>
+  </Steps>
+</div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Explore by Topic</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Learn how to use and customize Kubernetes Dashboard for your needs.</p>
+  
+  <CardGroup cols={3}>
+    <Card title="User Guide" icon="user" href="/user/authentication">
+      Learn how to manage applications, view logs, access shells, and monitor metrics.
+    </Card>
+    <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+      Understand the multi-module architecture with API, Auth, Web, and Metrics components.
+    </Card>
+    <Card title="Configuration" icon="sliders" href="/configuration/helm-values">
+      Customize your installation with Helm values, security settings, and ingress options.
+    </Card>
+    <Card title="API Reference" icon="code" href="/api/overview">
+      Explore the REST API for programmatic access to cluster resources.
+    </Card>
+    <Card title="Development" icon="hammer" href="/development/getting-started">
+      Set up a local development environment and contribute to the project.
+    </Card>
+    <Card title="Security" icon="shield" href="/configuration/security">
+      Configure RBAC, network policies, and authentication methods.
+    </Card>
+  </CardGroup>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Key Features</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Powerful capabilities for managing your Kubernetes workloads.</p>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Resource Management</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Create, view, edit, and delete Deployments, Pods, Services, ConfigMaps, Secrets, and all core Kubernetes resources.
+      </p>
+    </div>
+    
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Real-Time Monitoring</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        View CPU and memory metrics, track resource utilization, and visualize cluster health in real time.
+      </p>
+    </div>
+    
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Log Viewing & Shell Access</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Stream container logs and execute commands directly in pods through an integrated terminal interface.
+      </p>
+    </div>
+    
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27]">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">RBAC & Security</h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Integrate with Kubernetes RBAC, support OIDC authentication, and enforce fine-grained access controls.
+      </p>
+    </div>
+  </div>
+</div>
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="p-8 rounded-2xl bg-gradient-to-br from-[#326ce5]/10 via-[#7ab3ff]/10 to-[#0047bb]/10 dark:from-[#0047bb]/20 dark:via-[#326ce5]/20 dark:to-[#001f54]/20 border border-[#326ce5]/20 dark:border-[#326ce5]/30">
+    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Important Notice</h2>
+    <p className="text-base text-gray-700 dark:text-gray-300 mb-6">
+      This project is now archived and no longer actively maintained due to lack of active maintainers and contributors. 
+      Consider using <a href="https://github.com/kubernetes-sigs/headlamp" className="text-[#326ce5] hover:underline font-semibold">Headlamp</a> as an alternative, 
+      which is now maintained under the sig-ui.
+    </p>
+    <a 
+      href="/introduction" 
+      className="inline-flex items-center px-6 py-3 rounded-lg bg-[#326ce5] text-white font-semibold hover:bg-[#0047bb] transition-colors"
+    >
+      Read Full Introduction
+    </a>
+  </div>
+</div>

@@ -1,0 +1,283 @@
+---
+title: Building
+description: Building the Kubernetes Dashboard project
+---
+
+## Build Overview
+
+The Kubernetes Dashboard uses a modular build system with multiple make targets for different build scenarios. All builds are orchestrated through the root `Makefile`.
+
+## Make Targets
+
+The project provides several make targets for building different components:
+
+### Primary Build Commands
+
+<CodeGroup>
+```bash Build All Modules
+make build
+```
+
+```bash Build Docker Images
+make image
+```
+
+```bash Clean Build Artifacts
+make clean
+```
+</CodeGroup>
+
+### Build Command Details
+
+<AccordionGroup>
+  <Accordion title="make build">
+    Builds all modules in the `modules` directory.
+    
+    **What it does:**
+    - Ensures all required tools are installed
+    - Cleans up temporary directories
+    - Runs build targets for all modules
+    
+    **Source:** [Makefile:27](~/workspace/source/Makefile:27)
+    
+    ```bash
+    make build
+    ```
+  </Accordion>
+
+  <Accordion title="make image">
+    Creates Docker images for all modules locally.
+    
+    **What it does:**
+    - Builds production-ready Docker images
+    - Uses Docker Compose to build all services
+    - Tags images with version `v0.0.0-prod`
+    
+    **Source:** [Makefile:113](~/workspace/source/Makefile:113)
+    
+    ```bash
+    make image
+    ```
+    
+    **Skip Build:**
+    ```bash
+    NO_BUILD=true make image
+    ```
+  </Accordion>
+
+  <Accordion title="make clean">
+    Cleans up all temporary directories and build artifacts.
+    
+    **What it does:**
+    - Removes temporary directories
+    - Cleans build artifacts across all modules
+    
+    **Source:** [Makefile:35](~/workspace/source/Makefile:35)
+    
+    ```bash
+    make clean
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Building Docker Images
+
+### Local Development Images
+
+For local development, Docker images are built automatically when you run:
+
+```bash
+make serve  # Development version
+make run    # Production version
+```
+
+These commands build the necessary images and start the services.
+
+### Manual Image Building
+
+To build Docker images manually without starting services:
+
+```bash
+make image
+```
+
+This creates the following images:
+- `dashboard-auth` - Authentication module
+- `dashboard-api` - API module
+- `dashboard-web` - Web frontend
+- `dashboard-scraper` - Metrics scraper
+
+### Image Build Configuration
+
+Images are built using Docker Compose with the following settings:
+
+- **Version tag:** `v0.0.0-prod`
+- **Architecture:** Defaults to system architecture (can be overridden with `ARCH` variable)
+- **Build cache:** Use `--no-cache` flag for clean builds
+
+## Building for Helm
+
+For deploying to a local Kubernetes cluster using Helm:
+
+```bash
+make helm
+```
+
+This comprehensive build process:
+1. Ensures a kind cluster is running
+2. Installs ingress-nginx for kind
+3. Updates Helm dependencies
+4. Builds all production-ready Docker images
+5. Loads built images into the kind cluster
+6. Installs Kubernetes Dashboard via Helm chart
+
+**Result:** Dashboard available at https://localhost
+
+<Warning>
+  Make sure port 443 is free on your localhost before running `make helm`.
+</Warning>
+
+### Skip Building Images
+
+If you already have images built and just want to install the Helm chart:
+
+```bash
+NO_BUILD=true make helm
+```
+
+## Module-Specific Builds
+
+The build system supports module-specific operations:
+
+### API Module
+
+The API module is built as part of the global build process. It includes:
+- Go compilation
+- Binary creation
+- Docker image building
+
+### Web Module
+
+The web module uses Angular and includes:
+- TypeScript compilation
+- Asset optimization
+- Production bundle creation
+
+**Build production web assets:**
+```bash
+cd modules/web
+yarn build:prod
+```
+
+This is equivalent to:
+```bash
+cd modules/web
+make build
+```
+
+### Metrics Scraper
+
+The metrics scraper is built as a Go binary and packaged into a Docker image.
+
+## Schema Generation
+
+If you modify API schemas or GraphQL definitions, regenerate schemas:
+
+```bash
+make schema
+```
+
+This regenerates schemas for:
+- API module
+- Web module
+
+**Source:** [Makefile:53](~/workspace/source/Makefile:53)
+
+## Build Verification
+
+After building, verify the build was successful:
+
+### Check Docker Images
+
+```bash
+docker images | grep dashboard
+```
+
+You should see:
+- `dashboard-auth:latest`
+- `dashboard-api:latest`
+- `dashboard-web:latest`
+- `dashboard-scraper:latest`
+
+### Run Health Checks
+
+Start the production build and verify all services are healthy:
+
+```bash
+make run
+```
+
+Then visit:
+- http://localhost:8080 (HTTP)
+- https://localhost:8443 (HTTPS)
+
+## Build Options
+
+### Environment Variables
+
+The build system supports several environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `ARCH` | Target architecture | System architecture |
+| `VERSION` | Version tag for images | `v0.0.0-prod` |
+| `NO_BUILD` | Skip building images | `false` |
+| `SYSTEM_BANNER` | Custom banner text | Empty |
+| `SYSTEM_BANNER_SEVERITY` | Banner severity level | Empty |
+
+### Example: Build for Different Architecture
+
+```bash
+ARCH=arm64 make image
+```
+
+## Troubleshooting
+
+### Build Failures
+
+If builds fail, try:
+
+1. **Clean and rebuild:**
+   ```bash
+   make clean
+   make build
+   ```
+
+2. **Ensure tools are installed:**
+   ```bash
+   make tools
+   ```
+
+3. **Check Docker is running:**
+   ```bash
+   docker info
+   ```
+
+### Cache Issues
+
+For cache-related issues, rebuild images without cache:
+
+```bash
+make image  # Already uses --no-cache
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing" icon="vial" href="./testing">
+    Learn how to run tests and ensure code quality
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="./contributing">
+    Learn how to contribute your changes
+  </Card>
+</CardGroup>

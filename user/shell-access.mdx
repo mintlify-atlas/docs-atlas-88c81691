@@ -1,0 +1,488 @@
+---
+title: Shell Access
+description: Execute commands and open interactive shells in running containers
+---
+
+Kubernetes Dashboard provides a built-in terminal for executing commands directly in running containers. This feature is invaluable for debugging, troubleshooting, and interactive exploration.
+
+## Overview
+
+The Dashboard terminal uses WebSocket connections (via SockJS) to establish interactive shell sessions with your containers. This provides:
+
+- Interactive shell access (bash, sh, powershell, cmd)
+- Real-time command execution
+- Terminal resizing and scrolling
+- Multiple concurrent sessions
+- Secure communication over HTTPS
+
+<Info>
+Shell access requires the container to have a shell binary installed. Common shells include `bash`, `sh`, `powershell`, and `cmd`.
+</Info>
+
+## Accessing the Terminal
+
+There are multiple ways to open a shell session:
+
+<Tabs>
+  <Tab title="From Pod Detail">
+    1. Navigate to **Workloads** → **Pods**
+    2. Click on a pod name
+    3. Click the **Exec** button in the action bar
+    4. Select the target container
+  </Tab>
+  
+  <Tab title="From Pod List">
+    1. Navigate to **Workloads** → **Pods**
+    2. Click the three-dot menu next to a pod
+    3. Select **Exec**
+  </Tab>
+  
+  <Tab title="From Container View">
+    1. Open a pod detail page
+    2. Scroll to the containers section
+    3. Click **Exec** for the target container
+  </Tab>
+</Tabs>
+
+## Terminal Interface
+
+The Dashboard terminal provides a full-featured shell environment:
+
+### Features
+
+<CardGroup cols={2}>
+  <Card title="Interactive Shell" icon="terminal">
+    Full TTY support with command history and tab completion
+  </Card>
+  <Card title="Terminal Resize" icon="arrows-maximize">
+    Automatically adapts to browser window size
+  </Card>
+  <Card title="Copy/Paste" icon="clipboard">
+    Standard clipboard operations for commands and output
+  </Card>
+  <Card title="Scrollback" icon="scroll">
+    Scroll through command history and output
+  </Card>
+</CardGroup>
+
+### Keyboard Shortcuts
+
+- **Ctrl+C**: Send interrupt signal (SIGINT)
+- **Ctrl+D**: Send EOF signal (exit shell)
+- **Ctrl+L**: Clear terminal screen
+- **Arrow Up/Down**: Navigate command history
+- **Tab**: Autocomplete commands and paths
+
+## Terminal Implementation
+
+Dashboard implements terminal access using WebSockets and the Kubernetes exec API.
+
+### Session Management
+
+Terminal sessions are managed via SockJS connections (`modules/api/pkg/handler/terminal.go:49-69`):
+
+```go
+type TerminalSession struct {
+    id            string
+    bound         chan error
+    sockJSSession sockjs.Session
+    sizeChan      chan remotecommand.TerminalSize
+}
+
+type TerminalMessage struct {
+    Op, Data, SessionID string
+    Rows, Cols          uint16
+}
+```
+
+### Message Protocol
+
+The terminal uses a message-based protocol:
+
+| Operation | Direction | Fields | Description |
+|-----------|-----------|--------|-------------|
+| `bind` | Frontend → Backend | SessionID | Bind SockJS session to terminal |
+| `stdin` | Frontend → Backend | Data | User keystrokes and input |
+| `resize` | Frontend → Backend | Rows, Cols | Terminal window resized |
+| `stdout` | Backend → Frontend | Data | Process output |
+| `toast` | Backend → Frontend | Data | Out-of-band messages |
+
+### Shell Detection
+
+Dashboard automatically detects available shells (`modules/api/pkg/handler/terminal.go:271-305`):
+
+```go
+func WaitForTerminal(k8sClient kubernetes.Interface, cfg *rest.Config, 
+    request *restful.Request, sessionId string) {
+    
+    shell := request.QueryParameter("shell")
+    
+    var err error
+    validShells := []string{"bash", "sh", "powershell", "cmd"}
+    
+    if isValidShell(validShells, shell) {
+        cmd := []string{shell}
+        err = startProcess(k8sClient, cfg, request, cmd, terminalSessions.Get(sessionId))
+    } else {
+        // Try shells until one succeeds
+        for _, testShell := range validShells {
+            cmd := []string{testShell}
+            if err = startProcess(k8sClient, cfg, request, cmd, terminalSessions.Get(sessionId)); err == nil {
+                break
+            }
+        }
+    }
+    
+    if err != nil {
+        terminalSessions.Close(sessionId, 2, err.Error())
+        return
+    }
+    
+    terminalSessions.Close(sessionId, 1, "Process exited")
+}
+```
+
+<Info>
+If no shell is specified, Dashboard tries shells in order: `bash`, `sh`, `powershell`, `cmd`.
+</Info>
+
+### Process Execution
+
+The terminal establishes a SPDY connection to the Kubernetes API (`modules/api/pkg/handler/terminal.go:216-255`):
+
+```go
+func startProcess(k8sClient kubernetes.Interface, cfg *rest.Config, 
+    request *restful.Request, cmd []string, ptyHandler PtyHandler) error {
+    
+    namespace := request.PathParameter("namespace")
+    podName := request.PathParameter("pod")
+    containerName := request.PathParameter("container")
+    
+    req := k8sClient.CoreV1().RESTClient().Post().
+        Resource("pods").
+        Name(podName).
+        Namespace(namespace).
+        SubResource("exec")
+    
+    req.VersionedParams(&v1.PodExecOptions{
+        Container: containerName,
+        Command:   cmd,
+        Stdin:     true,
+        Stdout:    true,
+        Stderr:    true,
+        TTY:       true,
+    }, scheme.ParameterCodec)
+    
+    exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+    if err != nil {
+        return err
+    }
+    
+    err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+        Stdin:             ptyHandler,
+        Stdout:            ptyHandler,
+        Stderr:            ptyHandler,
+        TerminalSizeQueue: ptyHandler,
+        Tty:               true,
+    })
+    
+    return err
+}
+```
+
+## Common Use Cases
+
+### Debugging Application Issues
+
+<Steps>
+  <Step title="Open Shell">
+    Execute into the problematic container
+  </Step>
+  
+  <Step title="Inspect Environment">
+    Check environment variables and configuration:
+    ```bash
+    env | grep DATABASE
+    cat /etc/config/app.conf
+    ```
+  </Step>
+  
+  <Step title="Test Connectivity">
+    Verify network connectivity to dependencies:
+    ```bash
+    curl http://api-service:8080/health
+    ping database.default.svc.cluster.local
+    ```
+  </Step>
+  
+  <Step title="Review Files">
+    Check application logs and data:
+    ```bash
+    ls -la /var/log/
+    tail -f /var/log/app.log
+    ```
+  </Step>
+</Steps>
+
+### Inspecting Container State
+
+Common inspection commands:
+
+<CodeGroup>
+```bash Process List
+ps aux
+top
+```
+
+```bash Disk Usage
+df -h
+du -sh /*
+```
+
+```bash Network Status
+netstat -tunlp
+ss -tunlp
+```
+
+```bash Environment
+env
+printenv
+```
+</CodeGroup>
+
+### Testing Configuration Changes
+
+Test configuration before deploying:
+
+```bash
+# Test database connection
+psql -h database -U admin -d myapp -c "SELECT 1;"
+
+# Validate configuration file
+config-validator /etc/app/config.yaml
+
+# Test API endpoint
+curl -X POST http://localhost:8080/api/test \
+  -H "Content-Type: application/json" \
+  -d '{"test": "data"}'
+```
+
+### Installing Debug Tools
+
+Install troubleshooting utilities temporarily:
+
+<Warning>
+**Temporary Changes Only**: Changes made in a running container are lost when the container restarts. Update your container image for permanent changes.
+</Warning>
+
+```bash
+# Debian/Ubuntu
+apt update && apt install -y curl vim netcat
+
+# Alpine
+apk add --no-cache curl vim netcat-openbsd
+
+# CentOS/RHEL
+yum install -y curl vim nc
+```
+
+## Security Considerations
+
+<AccordionGroup>
+  <Accordion title="RBAC Permissions Required">
+    Shell access requires the `pods/exec` permission:
+    
+    ```yaml
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: pod-exec
+      namespace: default
+    rules:
+    - apiGroups: [""]
+      resources: ["pods/exec"]
+      verbs: ["create", "get"]
+    ```
+    
+    Verify permissions:
+    ```bash
+    kubectl auth can-i create pods/exec -n default
+    ```
+  </Accordion>
+  
+  <Accordion title="Use HTTPS Only">
+    Terminal sessions should only be accessed over HTTPS to prevent command interception. The WebSocket connection inherits the HTTP(S) protocol.
+  </Accordion>
+  
+  <Accordion title="Audit Exec Access">
+    Enable audit logging to track exec sessions:
+    
+    ```yaml
+    apiVersion: audit.k8s.io/v1
+    kind: Policy
+    rules:
+    - level: RequestResponse
+      verbs: ["create"]
+      resources:
+      - group: ""
+        resources: ["pods/exec"]
+    ```
+  </Accordion>
+  
+  <Accordion title="Limit Exec Permissions">
+    Grant exec permissions only to trusted users and service accounts. Consider using Pod Security Policies or admission controllers to restrict exec access.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Terminal connection fails">
+    **Check WebSocket connectivity:**
+    Ensure your network allows WebSocket connections and that no proxies are interfering.
+    
+    **Verify pod status:**
+    ```bash
+    kubectl get pod <pod-name> -n <namespace>
+    ```
+    The pod must be in "Running" state.
+    
+    **Check container status:**
+    Ensure the container is running and healthy:
+    ```bash
+    kubectl describe pod <pod-name> -n <namespace>
+    ```
+  </Accordion>
+  
+  <Accordion title="No shell available">
+    **Error**: "Process exited" or connection immediately closes.
+    
+    **Cause**: The container doesn't have a shell binary.
+    
+    **Solution**: Use a debug container or update your image:
+    ```dockerfile
+    # Add shell to minimal images
+    RUN apk add --no-cache bash
+    ```
+    
+    Or use ephemeral debug containers (Kubernetes 1.23+):
+    ```bash
+    kubectl debug -it <pod-name> --image=busybox --target=<container-name>
+    ```
+  </Accordion>
+  
+  <Accordion title="Terminal appears frozen">
+    **Check for blocking commands:**
+    Some commands may block indefinitely. Press `Ctrl+C` to interrupt.
+    
+    **Verify network connectivity:**
+    Test the WebSocket connection by closing and reopening the terminal.
+    
+    **Check browser console:**
+    Look for JavaScript errors or WebSocket connection issues.
+  </Accordion>
+  
+  <Accordion title="Permission denied errors">
+    **Check RBAC permissions:**
+    ```bash
+    kubectl auth can-i create pods/exec --as=system:serviceaccount:kubernetes-dashboard:kubernetes-dashboard -n <namespace>
+    ```
+    
+    **Check pod security context:**
+    Some pods run as non-root users with restricted permissions. Use `sudo` if available, or exec as root:
+    ```bash
+    # Not available in Dashboard UI - use kubectl
+    kubectl exec -it <pod-name> -n <namespace> -- /bin/bash -c "su - root"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Terminal Limitations
+
+Be aware of Dashboard terminal limitations:
+
+- **No file upload**: Cannot upload files directly (use `kubectl cp` instead)
+- **No session persistence**: Sessions close when browser tab closes
+- **No multiplexing**: One terminal per browser tab
+- **Limited scrollback**: Browser memory constraints
+
+<Tip>
+For advanced terminal features, consider using:
+- **kubectl exec**: Full terminal features and file operations
+- **k9s**: Interactive Kubernetes CLI
+- **Lens**: Desktop Kubernetes IDE with built-in terminal
+</Tip>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use read-only operations">
+    Prefer inspection over modification:
+    ```bash
+    # Good: Read-only inspection
+    cat /etc/config/app.yaml
+    
+    # Avoid: Modifying running containers
+    sed -i 's/old/new/' /etc/config/app.yaml
+    ```
+    
+    Make permanent changes via updated container images or ConfigMaps.
+  </Accordion>
+  
+  <Accordion title="Document your debugging steps">
+    Keep notes of commands and findings for future reference and team collaboration.
+  </Accordion>
+  
+  <Accordion title="Clean up test data">
+    Remove temporary files created during debugging:
+    ```bash
+    rm /tmp/debug-output.txt
+    ```
+  </Accordion>
+  
+  <Accordion title="Use ephemeral debug containers">
+    For distroless or minimal images, use debug containers instead of modifying running containers:
+    ```bash
+    kubectl debug -it <pod-name> --image=ubuntu --target=<container-name>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Usage
+
+### Specifying Shell
+
+Request a specific shell via URL parameter:
+
+```
+/api/v1/exec/<namespace>/<pod>/<container>?shell=bash
+```
+
+Supported shells:
+- `bash`: Bourne Again Shell
+- `sh`: POSIX shell
+- `powershell`: Windows PowerShell
+- `cmd`: Windows Command Prompt
+
+### Session Timeout
+
+Sessions automatically close after 10 seconds if the WebSocket connection isn't established (`modules/api/pkg/handler/terminal.go:314-318`):
+
+```go
+case <-time.After(10 * time.Second):
+    // Close chan and delete session when sockjs connection was timeout
+    close(terminalSessions.Get(sessionId).bound)
+    delete(terminalSessions.Sessions, sessionId)
+    return
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Viewing Logs" href="/user/viewing-logs">
+    Access container logs for debugging
+  </Card>
+  <Card title="Managing Resources" href="/user/managing-resources">
+    Learn about resource management
+  </Card>
+</CardGroup>

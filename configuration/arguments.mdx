@@ -1,0 +1,848 @@
+---
+title: Command-Line Arguments
+description: Reference for all Dashboard module command-line arguments
+---
+
+Kubernetes Dashboard modules accept command-line arguments to customize their behavior. Arguments are passed via Helm values under `<module>.containers.args`.
+
+## API Module Arguments
+
+The API module is the backend that communicates with the Kubernetes API server and serves Dashboard data.
+
+### Configuration in Helm
+
+```yaml
+api:
+  containers:
+    args:
+      - --openapi-enabled=true
+      - --prometheus-enabled=true
+      - --system-banner="Production Cluster"
+```
+
+### Available Arguments
+
+<ParamField path="disable-csrf-protection" type="boolean" default="false">
+  Disable CSRF (Cross-Site Request Forgery) protection.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --disable-csrf-protection=false
+  ```
+  
+  <Warning>
+    Never enable this in production. CSRF protection is critical for security.
+  </Warning>
+</ParamField>
+
+<ParamField path="act-as-proxy" type="boolean" default="false">
+  Force Dashboard to work in full proxy mode, disabling in-cluster client calls.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --act-as-proxy=true
+  ```
+  
+  Useful when Dashboard runs outside the cluster and must proxy all requests.
+</ParamField>
+
+<ParamField path="openapi-enabled" type="boolean" default="false">
+  Enable OpenAPI v2 endpoint at `/apidocs.json`.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --openapi-enabled=true
+  ```
+  
+  Used to autogenerate OpenAPI/GraphQL schemas.
+</ParamField>
+
+<ParamField path="profiler" type="boolean" default="false">
+  Enable pprof profiling endpoint.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --profiler=true
+  ```
+  
+  Exposes profiling data at `localhost:8070/debug/pprof` for performance debugging.
+</ParamField>
+
+<ParamField path="prometheus-enabled" type="boolean" default="false">
+  Enable Prometheus metrics endpoint.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --prometheus-enabled=true
+  ```
+  
+  Exposes metrics at `localhost:8080/metrics` for Prometheus scraping.
+</ParamField>
+
+<ParamField path="apiserver-skip-tls-verify" type="boolean" default="false">
+  Skip TLS certificate verification when connecting to Kubernetes API server.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --apiserver-skip-tls-verify=true
+  ```
+  
+  <Warning>
+    Only use for development/testing. Never in production.
+  </Warning>
+</ParamField>
+
+<ParamField path="auto-generate-certificates" type="boolean" default="false">
+  Automatically generate self-signed certificates for HTTPS.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --auto-generate-certificates=true
+  ```
+  
+  Certificates are stored in `--default-cert-dir`.
+</ParamField>
+
+<ParamField path="cache-enabled" type="boolean" default="true">
+  Enable client-side caching.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --cache-enabled=true
+  ```
+  
+  Improves performance by caching Kubernetes API responses.
+</ParamField>
+
+<ParamField path="cluster-context-enabled" type="boolean" default="false">
+  Enable multi-cluster cache context support.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --cluster-context-enabled=true
+        - --token-exchange-endpoint=http://token-service:8000/exchange
+  ```
+  
+  Requires a token exchange endpoint for multi-cluster scenarios.
+</ParamField>
+
+<ParamField path="cache-size" type="number" default="1000">
+  Maximum number of cache entries.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --cache-size=5000
+  ```
+</ParamField>
+
+<ParamField path="cache-ttl" type="duration" default="10m">
+  Time-to-live for each cache entry.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --cache-ttl=15m
+  ```
+</ParamField>
+
+<ParamField path="cache-refresh-debounce" type="duration" default="5s">
+  Minimum time between cache refreshes in background.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --cache-refresh-debounce=10s
+  ```
+</ParamField>
+
+<ParamField path="insecure-port" type="number" default="8000">
+  Port for HTTP requests.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --insecure-port=8000
+  ```
+</ParamField>
+
+<ParamField path="port" type="number" default="8001">
+  Port for HTTPS requests.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --port=8443
+  ```
+</ParamField>
+
+<ParamField path="metric-client-check-period" type="number" default="30">
+  Seconds between metric client health checks.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --metric-client-check-period=60
+  ```
+</ParamField>
+
+<ParamField path="insecure-bind-address" type="string" default="127.0.0.1">
+  IP address for `--insecure-port`.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --insecure-bind-address=0.0.0.0
+  ```
+</ParamField>
+
+<ParamField path="bind-address" type="string" default="0.0.0.0">
+  IP address for `--port`.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --bind-address=0.0.0.0
+  ```
+</ParamField>
+
+<ParamField path="token-exchange-endpoint" type="string" default="">
+  Endpoint for token exchange when `--cluster-context-enabled=true`.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --token-exchange-endpoint=http://auth-service:8000/exchange
+  ```
+</ParamField>
+
+<ParamField path="default-cert-dir" type="string" default="/certs">
+  Directory for TLS certificates.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --default-cert-dir=/etc/dashboard/certs
+  ```
+  
+  Path is relative to the container, not the host.
+</ParamField>
+
+<ParamField path="apiserver-ca-bundle" type="string" default="">
+  Path to CA bundle for API server HTTPS connections.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --apiserver-ca-bundle=/etc/ssl/certs/ca-bundle.crt
+  ```
+</ParamField>
+
+<ParamField path="tls-cert-file" type="string" default="">
+  Path to TLS certificate file.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --tls-cert-file=/certs/tls.crt
+  ```
+</ParamField>
+
+<ParamField path="tls-key-file" type="string" default="">
+  Path to TLS private key file.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --tls-key-file=/certs/tls.key
+  ```
+</ParamField>
+
+<ParamField path="apiserver-host" type="string" default="">
+  Kubernetes API server address.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --apiserver-host=https://kubernetes.default.svc:443
+  ```
+  
+  If not specified, uses in-cluster service discovery.
+</ParamField>
+
+<ParamField path="metrics-provider" type="string" default="sidecar">
+  Metrics provider type.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --metrics-provider=sidecar
+  ```
+  
+  Options:
+  - `sidecar` - Use metrics-scraper sidecar
+  - `none` - Disable metrics
+</ParamField>
+
+<ParamField path="sidecar-host" type="string" default="">
+  Address of the metrics scraper sidecar.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --sidecar-host=http://metrics-scraper:8000
+  ```
+  
+  If not specified, uses service proxy.
+</ParamField>
+
+<ParamField path="kubeconfig" type="string" default="">
+  Path to kubeconfig file.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --kubeconfig=/etc/kubernetes/admin.conf
+  ```
+</ParamField>
+
+<ParamField path="namespace" type="string" default="kubernetes-dashboard">
+  Namespace for Dashboard-specific resources.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --namespace=kube-system
+  ```
+</ParamField>
+
+<ParamField path="metrics-scraper-service-name" type="string" default="kubernetes-dashboard-metrics-scraper">
+  Name of the metrics scraper service.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --metrics-scraper-service-name=custom-metrics-scraper
+  ```
+</ParamField>
+
+<ParamField path="csrf-key" type="string" default="">
+  Base64 encoded 256-byte CSRF key.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --csrf-key=<base64-encoded-key>
+  ```
+  
+  Can also be loaded from `CSRF_KEY` environment variable (preferred).
+</ParamField>
+
+<ParamField path="v" type="number" default="1">
+  Log verbosity level.
+  
+  ```yaml
+  api:
+    containers:
+      args:
+        - --v=2
+  ```
+  
+  Higher values = more verbose logging.
+</ParamField>
+
+## Auth Module Arguments
+
+The Auth module handles user authentication and token management.
+
+### Configuration in Helm
+
+```yaml
+auth:
+  containers:
+    args:
+      - --v=2
+```
+
+### Available Arguments
+
+<ParamField path="apiserver-skip-tls-verify" type="boolean" default="false">
+  Skip TLS verification for API server connections.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --apiserver-skip-tls-verify=false
+  ```
+</ParamField>
+
+<ParamField path="apiserver-ca-bundle" type="string" default="">
+  Path to CA bundle for API server HTTPS.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --apiserver-ca-bundle=/etc/ssl/certs/ca-bundle.crt
+  ```
+</ParamField>
+
+<ParamField path="port" type="number" default="8000">
+  Port for HTTPS requests.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --port=8000
+  ```
+</ParamField>
+
+<ParamField path="address" type="string" default="0.0.0.0">
+  IP address to bind to.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --address=0.0.0.0
+  ```
+</ParamField>
+
+<ParamField path="kubeconfig" type="string" default="">
+  Path to kubeconfig file.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --kubeconfig=/etc/kubernetes/config
+  ```
+</ParamField>
+
+<ParamField path="apiserver-host" type="string" default="">
+  Kubernetes API server address.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --apiserver-host=https://kubernetes.default.svc
+  ```
+</ParamField>
+
+<ParamField path="csrf-key" type="string" default="">
+  Base64 encoded CSRF key.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --csrf-key=<base64-key>
+  ```
+  
+  Preferably loaded from `CSRF_KEY` environment variable.
+</ParamField>
+
+<ParamField path="v" type="number" default="1">
+  Log verbosity level.
+  
+  ```yaml
+  auth:
+    containers:
+      args:
+        - --v=2
+  ```
+</ParamField>
+
+## Web Module Arguments
+
+The Web module serves the Dashboard frontend UI.
+
+### Configuration in Helm
+
+```yaml
+web:
+  containers:
+    args:
+      - --system-banner="Production Environment"
+      - --system-banner-severity=WARNING
+```
+
+### Available Arguments
+
+<ParamField path="auto-generate-certificates" type="boolean" default="false">
+  Automatically generate self-signed certificates.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --auto-generate-certificates=true
+  ```
+</ParamField>
+
+<ParamField path="insecure-port" type="number" default="8000">
+  HTTP port.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --insecure-port=8000
+  ```
+</ParamField>
+
+<ParamField path="port" type="number" default="8001">
+  HTTPS port.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --port=8443
+  ```
+</ParamField>
+
+<ParamField path="insecure-bind-address" type="string" default="127.0.0.1">
+  IP address for HTTP.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --insecure-bind-address=127.0.0.1
+  ```
+</ParamField>
+
+<ParamField path="bind-address" type="string" default="0.0.0.0">
+  IP address for HTTPS.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --bind-address=0.0.0.0
+  ```
+</ParamField>
+
+<ParamField path="namespace" type="string" default="kube-system">
+  Namespace for Dashboard resources.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --namespace=kubernetes-dashboard
+  ```
+</ParamField>
+
+<ParamField path="default-cert-dir" type="string" default="/certs">
+  Directory for TLS certificates.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --default-cert-dir=/etc/certs
+  ```
+</ParamField>
+
+<ParamField path="tls-cert-file" type="string" default="">
+  TLS certificate file path.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --tls-cert-file=/certs/tls.crt
+  ```
+</ParamField>
+
+<ParamField path="tls-key-file" type="string" default="">
+  TLS private key file path.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --tls-key-file=/certs/tls.key
+  ```
+</ParamField>
+
+<ParamField path="settings-config-map-name" type="string" default="kubernetes-dashboard-settings">
+  ConfigMap name for Dashboard settings.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --settings-config-map-name=custom-settings
+  ```
+  
+  See [Settings Configuration](/configuration/settings) for details.
+</ParamField>
+
+<ParamField path="system-banner" type="string" default="">
+  Banner message displayed to all users.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --system-banner="Production Environment - Make changes carefully"
+  ```
+  
+  Accepts simple HTML tags:
+  ```yaml
+  web:
+    containers:
+      args:
+        - --system-banner="<strong>Warning:</strong> Production Cluster"
+  ```
+</ParamField>
+
+<ParamField path="system-banner-severity" type="string" default="INFO">
+  Banner severity level (affects color/styling).
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --system-banner="Production Environment"
+        - --system-banner-severity=WARNING
+  ```
+  
+  Options:
+  - `INFO` - Blue banner
+  - `WARNING` - Yellow/orange banner
+  - `ERROR` - Red banner
+</ParamField>
+
+<ParamField path="locale-config" type="string" default="./locale_conf.json">
+  Path to locale configuration file.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --locale-config=/etc/dashboard/locale.json
+  ```
+</ParamField>
+
+<ParamField path="kubeconfig" type="string" default="">
+  Path to kubeconfig file.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --kubeconfig=/etc/kubernetes/config
+  ```
+</ParamField>
+
+<ParamField path="v" type="number" default="1">
+  Log verbosity level.
+  
+  ```yaml
+  web:
+    containers:
+      args:
+        - --v=3
+  ```
+</ParamField>
+
+## Metrics Scraper Arguments
+
+The Metrics Scraper polls and stores metrics from the Kubernetes Metrics Server.
+
+### Configuration in Helm
+
+```yaml
+metricsScraper:
+  containers:
+    args:
+      - --metric-resolution=30s
+      - --metric-duration=30m
+```
+
+### Available Arguments
+
+<ParamField path="metric-resolution" type="duration" default="1m">
+  Polling interval for metrics.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --metric-resolution=30s
+  ```
+  
+  Lower values = more frequent updates, higher resource usage.
+</ParamField>
+
+<ParamField path="metric-duration" type="duration" default="15m">
+  Time to retain metrics before purging.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --metric-duration=30m
+  ```
+</ParamField>
+
+<ParamField path="kubeconfig" type="string" default="">
+  Path to kubeconfig file.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --kubeconfig=/etc/kubernetes/config
+  ```
+</ParamField>
+
+<ParamField path="db-file" type="string" default="/tmp/metrics.db">
+  SQLite database file path.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --db-file=/data/metrics.db
+  ```
+</ParamField>
+
+<ParamField path="namespaces" type="string" default="">
+  Comma-separated list of namespaces to monitor.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --namespaces=default,kube-system,production
+  ```
+  
+  When provided, node metrics are skipped.
+</ParamField>
+
+<ParamField path="v" type="number" default="1">
+  Log verbosity level.
+  
+  ```yaml
+  metricsScraper:
+    containers:
+      args:
+        - --v=2
+  ```
+</ParamField>
+
+## Example Configurations
+
+### Production API with Monitoring
+
+```yaml
+api:
+  containers:
+    args:
+      - --prometheus-enabled=true
+      - --cache-size=5000
+      - --cache-ttl=15m
+      - --metric-client-check-period=60
+      - --v=1
+```
+
+### Development with Debugging
+
+```yaml
+api:
+  containers:
+    args:
+      - --openapi-enabled=true
+      - --profiler=true
+      - --prometheus-enabled=true
+      - --v=3
+
+web:
+  containers:
+    args:
+      - --system-banner="Development Cluster"
+      - --system-banner-severity=INFO
+      - --v=3
+```
+
+### High-Performance Configuration
+
+```yaml
+api:
+  containers:
+    args:
+      - --cache-enabled=true
+      - --cache-size=10000
+      - --cache-ttl=30m
+      - --cache-refresh-debounce=10s
+      - --metric-client-check-period=120
+
+metricsScraper:
+  containers:
+    args:
+      - --metric-resolution=2m
+      - --metric-duration=60m
+```
+
+### Multi-Cluster Setup
+
+```yaml
+api:
+  containers:
+    args:
+      - --cluster-context-enabled=true
+      - --token-exchange-endpoint=http://token-service:8000/exchange
+      - --cache-enabled=true
+```
+
+## Related Configuration
+
+- [Helm Values Reference](/configuration/helm-values) - Container args configuration
+- [Settings Configuration](/configuration/settings) - UI behavior settings
+- [Security Configuration](/configuration/security) - CSRF and TLS configuration

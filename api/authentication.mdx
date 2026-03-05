@@ -1,0 +1,420 @@
+---
+title: 'API Authentication'
+description: 'Authentication mechanisms and authorization for the Kubernetes Dashboard API'
+---
+
+## Overview
+
+The Kubernetes Dashboard API uses Bearer token authentication to authenticate requests. The API acts as a proxy to the Kubernetes API server, forwarding authentication credentials to ensure proper authorization.
+
+## Authentication Methods
+
+### Bearer Token Authentication
+
+The primary authentication method is Bearer token authentication using Kubernetes service account tokens or OIDC tokens.
+
+#### Request Header
+
+```http
+Authorization: Bearer <token>
+```
+
+#### Example
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod' \
+  -H 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9...'
+```
+
+### Token Extraction
+
+The API extracts Bearer tokens from the `Authorization` header:
+
+```go
+func extractBearerToken(header string) string {
+    return strings.TrimPrefix(header, "Bearer ")
+}
+```
+
+### Token Validation
+
+The Dashboard does not validate tokens directly. Instead, it forwards them to the Kubernetes API server, which performs validation and authorization.
+
+## Client Initialization
+
+The API supports two client modes:
+
+### In-Cluster Client
+
+Used for cluster-wide operations with the Dashboard's service account:
+
+```go
+config := rest.InClusterConfig()
+client := kubernetes.NewForConfig(config)
+```
+
+### Per-Request Client
+
+Created for each user request with their Bearer token:
+
+```go
+config := rest.Config{
+    Host: apiServerHost,
+    BearerToken: extractedToken,
+}
+client := kubernetes.NewForConfig(config)
+```
+
+## Authorization
+
+### RBAC Integration
+
+The Dashboard respects Kubernetes RBAC policies. User permissions are determined by:
+
+1. The service account associated with their token
+2. Roles and ClusterRoles bound to that service account
+3. RoleBindings and ClusterRoleBindings
+
+### Permission Checking
+
+The API provides a permission checking endpoint:
+
+<ParamField path="POST /api/v1/can-i" type="endpoint">
+  Check if the authenticated user has permission to perform an action
+</ParamField>
+
+#### Request Body
+
+```json
+{
+  "verb": "get",
+  "resource": "pods",
+  "namespace": "default"
+}
+```
+
+#### Response
+
+```json
+{
+  "allowed": true
+}
+```
+
+### Self-Subject Access Review
+
+The API uses Kubernetes `SelfSubjectAccessReview` to check permissions:
+
+```go
+func CanI(request *http.Request, ssar *v1.SelfSubjectAccessReview) bool {
+    k8sClient, err := Client(request)
+    response, err := k8sClient.AuthorizationV1().
+        SelfSubjectAccessReviews().
+        Create(context.TODO(), ssar, metaV1.CreateOptions{})
+    return response.Status.Allowed
+}
+```
+
+## Service Accounts
+
+### Dashboard Service Account
+
+The Dashboard typically runs with its own service account:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+```
+
+### Creating User Service Accounts
+
+Create a service account for API access:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dashboard-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: dashboard-user
+  namespace: kubernetes-dashboard
+```
+
+### Extracting Service Account Token
+
+#### Kubernetes 1.24+
+
+Create a token manually:
+
+```bash
+kubectl create token dashboard-user -n kubernetes-dashboard
+```
+
+#### Kubernetes < 1.24
+
+Extract from the secret:
+
+```bash
+kubectl get secret $(kubectl get serviceaccount dashboard-user -n kubernetes-dashboard -o jsonpath='{.secrets[0].name}') -n kubernetes-dashboard -o jsonpath='{.data.token}' | base64 -d
+```
+
+## TLS/SSL Configuration
+
+### Certificate Management
+
+The Dashboard API supports TLS with automatic certificate generation:
+
+<ParamField path="--tls-cert-file" type="string">
+  Path to the TLS certificate file
+</ParamField>
+
+<ParamField path="--tls-key-file" type="string">
+  Path to the TLS private key file
+</ParamField>
+
+<ParamField path="--auto-generate-certificates" type="boolean" default="false">
+  Enable automatic certificate generation using ECDSA P-256
+</ParamField>
+
+<ParamField path="--default-cert-dir" type="string" default="/certs">
+  Directory for auto-generated certificates
+</ParamField>
+
+### TLS Configuration
+
+Minimum TLS version is set to TLS 1.2:
+
+```go
+tlsConfig := &tls.Config{
+    Certificates: certificates,
+    MinVersion:   tls.VersionTLS12,
+}
+```
+
+## API Server Connection
+
+### Configuration Options
+
+<ParamField path="--apiserver-host" type="string">
+  The address of the Kubernetes API server (overrides in-cluster config)
+</ParamField>
+
+<ParamField path="--kubeconfig" type="string">
+  Path to kubeconfig file (for out-of-cluster development)
+</ParamField>
+
+<ParamField path="--apiserver-skip-tls-verify" type="boolean" default="false">
+  Skip TLS verification for the API server connection
+</ParamField>
+
+<ParamField path="--apiserver-ca-bundle" type="string">
+  Path to custom CA bundle for API server verification
+</ParamField>
+
+### Connection Verification
+
+On startup, the API verifies connectivity to the Kubernetes API server:
+
+```go
+versionInfo, err := client.InClusterClient().Discovery().ServerVersion()
+if err != nil {
+    klog.Fatalf("Error while initializing connection to Kubernetes apiserver")
+}
+klog.InfoS("Successful initial request to the apiserver", "version", versionInfo.String())
+```
+
+## Proxy Mode
+
+For development, the Dashboard can run in proxy mode:
+
+<ParamField path="--proxy" type="boolean" default="false">
+  Enable proxy mode (disables in-cluster client connections)
+</ParamField>
+
+In proxy mode:
+- In-cluster client is disabled
+- All requests use per-request authentication
+- Metrics integration is disabled
+
+## Security Headers
+
+### Authorization Header Handling
+
+The API checks for the Authorization header:
+
+```go
+func HasAuthorizationHeader(req *http.Request) bool {
+    header := req.Header.Get("Authorization")
+    if len(header) == 0 {
+        return false
+    }
+    token := extractBearerToken(header)
+    return strings.HasPrefix(header, "Bearer ") && len(token) > 0
+}
+```
+
+### Setting Authorization Headers
+
+For internal requests, the API sets authorization headers:
+
+```go
+func SetAuthorizationHeader(req *http.Request, token string) {
+    req.Header.Set("Authorization", "Bearer " + token)
+}
+```
+
+## Client Caching
+
+The API supports client caching for improved performance:
+
+<ParamField path="--cache-enabled" type="boolean" default="false">
+  Enable client-side caching
+</ParamField>
+
+When enabled, the API caches Kubernetes client instances per token.
+
+## User Agent
+
+The Dashboard identifies itself to the API server:
+
+```
+User-Agent: kubernetes-dashboard/{version}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when no valid Bearer token is provided:
+
+```json
+{
+  "status": "Failure",
+  "message": "Unauthorized",
+  "reason": "Unauthorized",
+  "code": 401
+}
+```
+
+### 403 Forbidden
+
+Returned when the token is valid but lacks permissions:
+
+```json
+{
+  "status": "Failure",
+  "message": "pods is forbidden: User \"system:serviceaccount:default:viewer\" cannot list resource \"pods\" in API group \"\" in the namespace \"kube-system\"",
+  "reason": "Forbidden",
+  "code": 403
+}
+```
+
+## Example: Complete Authentication Flow
+
+### Step 1: Create Service Account
+
+```bash
+kubectl create serviceaccount api-user -n kubernetes-dashboard
+```
+
+### Step 2: Create Role Binding
+
+```bash
+kubectl create clusterrolebinding api-user-binding \
+  --clusterrole=view \
+  --serviceaccount=kubernetes-dashboard:api-user
+```
+
+### Step 3: Get Token
+
+```bash
+TOKEN=$(kubectl create token api-user -n kubernetes-dashboard)
+```
+
+### Step 4: Make Authenticated Request
+
+```bash
+curl -X GET \
+  'https://dashboard.example.com/api/v1/pod/default' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Accept: application/json'
+```
+
+### Response
+
+```json
+{
+  "listMeta": {
+    "totalItems": 5
+  },
+  "items": [
+    {
+      "objectMeta": {
+        "name": "nginx-pod",
+        "namespace": "default"
+      },
+      "status": "Running"
+    }
+  ]
+}
+```
+
+## Best Practices
+
+### Security Recommendations
+
+1. **Use RBAC**: Always use role-based access control with minimal required permissions
+2. **Token Rotation**: Regularly rotate service account tokens
+3. **TLS Only**: Always use HTTPS in production
+4. **Token Scope**: Create service accounts with specific namespace or resource access
+5. **Avoid admin**: Don't bind service accounts to cluster-admin unless absolutely necessary
+
+### Example: Read-Only Access
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dashboard-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+- kind: ServiceAccount
+  name: dashboard-user
+  namespace: kubernetes-dashboard
+```
+
+### Example: Namespace-Specific Access
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dashboard-user-binding
+  namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+- kind: ServiceAccount
+  name: dashboard-user
+  namespace: kubernetes-dashboard
+```

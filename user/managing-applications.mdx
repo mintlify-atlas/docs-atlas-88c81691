@@ -1,0 +1,296 @@
+---
+title: Managing Applications
+description: Deploy and manage applications through the Kubernetes Dashboard UI
+---
+
+Kubernetes Dashboard provides a user-friendly interface for deploying and managing applications on your cluster. This guide covers how to create deployments, manage workloads, and configure application settings.
+
+## Deployment Options
+
+Dashboard offers two ways to deploy applications:
+
+<CardGroup cols={2}>
+  <Card title="Create from Form" icon="rectangle-terminal">
+    Use the web form to configure and deploy applications without writing YAML
+  </Card>
+  <Card title="Create from File" icon="file-code">
+    Upload or paste YAML/JSON manifests to deploy resources
+  </Card>
+</CardGroup>
+
+## Creating Applications from Form
+
+The Dashboard form provides a guided experience for deploying containerized applications.
+
+### Basic Configuration
+
+Access the creation form at **Create** → **Create from form**.
+
+<Steps>
+  <Step title="Application Details">
+    Configure the basic application settings:
+    
+    - **App name**: Unique identifier (max 24 characters)
+    - **Container image**: Docker image reference (e.g., `nginx:1.21`)
+    - **Number of pods**: Replica count for your deployment
+    - **Description**: Optional description for documentation
+  </Step>
+  
+  <Step title="Select Namespace">
+    Choose the target namespace or create a new one. Namespaces provide logical isolation for your applications.
+  </Step>
+  
+  <Step title="Configure Service (Optional)">
+    Expose your application:
+    
+    - **Internal**: ClusterIP service (cluster-only access)
+    - **External**: LoadBalancer or NodePort service (external access)
+  </Step>
+</Steps>
+
+### Advanced Options
+
+Expand the advanced options section for additional configuration:
+
+#### Labels and Annotations
+
+The form automatically applies the label `k8s-app` to your deployment (`modules/web/src/create/from/form/component.ts:46`):
+
+```typescript
+const APP_LABEL_KEY = 'k8s-app';
+```
+
+Add custom labels for:
+- Organization and categorization
+- Service mesh integration
+- Monitoring and alerting selectors
+
+#### Environment Variables
+
+Define environment variables for your containers:
+
+```yaml
+name: DATABASE_URL
+value: postgres://db:5432/myapp
+```
+
+Or reference ConfigMaps and Secrets:
+
+```yaml
+name: API_KEY
+valueFrom:
+  secretKeyRef:
+    name: api-credentials
+    key: api-key
+```
+
+#### Port Mappings
+
+Configure container ports and service ports:
+
+- **Container Port**: Port exposed by your application
+- **Service Port**: Port exposed by the Kubernetes Service
+- **Protocol**: TCP or UDP
+
+<Info>
+Supported protocols include TCP and UDP. The form validates protocol values to ensure compatibility (`modules/web/src/create/from/form/validator/validprotocol.validator.ts`).
+</Info>
+
+#### Resource Limits
+
+Set CPU and memory constraints:
+
+```yaml
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+```
+
+#### Image Pull Secrets
+
+For private container registries, select an image pull secret or create a new one.
+
+## Creating Applications from File
+
+Deploy resources using YAML or JSON manifests.
+
+### Upload File
+
+1. Navigate to **Create** → **Create from file**
+2. Click **Upload file** and select your manifest
+3. Review the configuration
+4. Click **Upload**
+
+### Paste Content
+
+Alternatively, paste YAML or JSON directly:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+```
+
+<Tip>
+Dashboard validates your manifest before deployment and displays helpful error messages if issues are detected.
+</Tip>
+
+## Managing Deployments
+
+View and manage your deployments at **Workloads** → **Deployments**.
+
+### Deployment Details
+
+The deployment detail view shows (`modules/api/pkg/resource/deployment/list.go:31-44`):
+
+```go
+type DeploymentList struct {
+    ListMeta          types.ListMeta
+    CumulativeMetrics []metricapi.Metric
+    Status            common.ResourceStatus
+    Deployments       []Deployment
+    Errors            []error
+}
+```
+
+- **Pods**: Running, pending, and failed pod counts
+- **Container Images**: Images used in the deployment
+- **Replica Status**: Current vs. desired replica count
+- **Labels**: Applied labels and selectors
+- **Events**: Recent deployment events
+
+### Scaling Deployments
+
+<Steps>
+  <Step title="Navigate to Deployment">
+    Click on your deployment from the list view
+  </Step>
+  
+  <Step title="Edit Replica Count">
+    Click the edit icon next to "Replicas"
+  </Step>
+  
+  <Step title="Update Count">
+    Enter the new replica count and save
+  </Step>
+</Steps>
+
+### Updating Deployments
+
+Modify deployment configuration:
+
+1. Click the **Edit** button in the action bar
+2. Update the YAML manifest
+3. Click **Update** to apply changes
+
+<Warning>
+Updating container images triggers a rolling update. Monitor the rollout status to ensure smooth deployment.
+</Warning>
+
+### Rolling Back
+
+Revert to a previous deployment revision:
+
+1. View deployment history in the **Events** section
+2. Identify the revision to roll back to
+3. Use `kubectl rollout undo` or edit the deployment YAML
+
+## Workload Types
+
+Dashboard supports managing various workload types:
+
+### Deployments
+Stateless applications with declarative updates and rolling deployments.
+
+### StatefulSets
+Stateful applications requiring stable network identities and persistent storage.
+
+### DaemonSets
+Ensure a pod runs on every node (or selected nodes) in the cluster.
+
+### Jobs
+Run-to-completion tasks that terminate after successful execution.
+
+### CronJobs
+Scheduled jobs that run at specified intervals.
+
+### ReplicaSets
+Maintain a stable set of replica pods (usually managed by Deployments).
+
+### ReplicationControllers
+Legacy workload type (superseded by Deployments).
+
+## Application Actions
+
+Common actions available in the Dashboard:
+
+<CardGroup cols={2}>
+  <Card title="View Logs" icon="scroll">
+    Stream container logs in real-time
+  </Card>
+  <Card title="Exec Shell" icon="terminal">
+    Execute commands inside running containers
+  </Card>
+  <Card title="Edit Resource" icon="pen-to-square">
+    Modify resource configuration via YAML editor
+  </Card>
+  <Card title="Delete Resource" icon="trash">
+    Remove resources from the cluster
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use namespaces for isolation">
+    Organize applications by environment (dev, staging, prod) or team using namespaces.
+  </Accordion>
+  
+  <Accordion title="Set resource requests and limits">
+    Prevent resource contention by defining appropriate CPU and memory constraints.
+  </Accordion>
+  
+  <Accordion title="Use health checks">
+    Configure liveness and readiness probes to ensure application reliability.
+  </Accordion>
+  
+  <Accordion title="Apply labels consistently">
+    Use standardized labels for better organization and service mesh integration.
+  </Accordion>
+  
+  <Accordion title="Version control manifests">
+    Store YAML files in Git for change tracking and disaster recovery.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Resources" href="/user/managing-resources">
+    Learn about pods, services, and other Kubernetes resources
+  </Card>
+  <Card title="Viewing Logs" href="/user/viewing-logs">
+    Access and analyze container logs
+  </Card>
+</CardGroup>

@@ -1,0 +1,435 @@
+---
+title: Viewing Logs
+description: Access and analyze container logs through Kubernetes Dashboard
+---
+
+Kubernetes Dashboard provides a convenient interface for viewing and downloading container logs. This guide covers how to access logs, apply filters, and troubleshoot common issues.
+
+## Overview
+
+Dashboard streams container logs directly from the Kubernetes API, offering:
+
+- Real-time log streaming
+- Historical log retrieval
+- Multi-container pod support
+- Download and filtering capabilities
+- Timestamp display
+- Log rotation handling
+
+<Info>
+Logs are retrieved using the Kubernetes `pods/log` API endpoint with configurable limits to prevent memory issues.
+</Info>
+
+## Accessing Container Logs
+
+There are multiple ways to access logs in Dashboard:
+
+<Tabs>
+  <Tab title="From Pod Detail">
+    1. Navigate to **Workloads** → **Pods**
+    2. Click on a pod name
+    3. Click the **Logs** icon in the action bar
+    4. Select the container (if multiple containers exist)
+  </Tab>
+  
+  <Tab title="From Pod List">
+    1. Navigate to **Workloads** → **Pods**
+    2. Click the three-dot menu next to a pod
+    3. Select **Logs**
+  </Tab>
+  
+  <Tab title="From Workload Detail">
+    1. Open any workload (Deployment, StatefulSet, etc.)
+    2. View the pods list in the detail page
+    3. Click **Logs** for any pod
+  </Tab>
+</Tabs>
+
+## Log Viewer Interface
+
+The log viewer provides several controls:
+
+### Container Selection
+
+For pods with multiple containers:
+
+```go
+type PodContainerList struct {
+    Containers []string
+}
+```
+
+Use the dropdown to switch between:
+- **Init containers**: Containers that run during pod initialization
+- **Application containers**: Main application containers
+
+### Timestamp Toggle
+
+Show or hide timestamps for each log line:
+
+```
+2026-03-05T10:30:45.123456789Z [INFO] Application started successfully
+2026-03-05T10:30:46.234567890Z [INFO] Listening on port 8080
+```
+
+### Previous Logs
+
+View logs from crashed containers:
+
+<Steps>
+  <Step title="Enable Previous Logs">
+    Check the "Previous" checkbox in the log viewer
+  </Step>
+  
+  <Step title="Review Crash Logs">
+    Examine logs from the container before it crashed
+  </Step>
+</Steps>
+
+<Warning>
+Previous logs are only available if the container was restarted due to a crash or termination. They're lost when the pod is deleted.
+</Warning>
+
+## Log Retrieval Implementation
+
+Dashboard implements log retrieval with safeguards (`modules/api/pkg/resource/container/logs.go:55-75`):
+
+```go
+func GetLogDetails(client kubernetes.Interface, namespace, podID string, 
+    container string, logSelector *logs.Selection, usePreviousLogs bool) (*logs.LogDetails, error) {
+    
+    pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podID, metaV1.GetOptions{})
+    if err != nil {
+        return nil, err
+    }
+    
+    if len(container) == 0 {
+        container = pod.Spec.Containers[0].Name
+    }
+    
+    logOptions := mapToLogOptions(container, logSelector, usePreviousLogs)
+    rawLogs, err := readRawLogs(client, namespace, podID, logOptions)
+    if err != nil {
+        return nil, err
+    }
+    
+    details := ConstructLogDetails(podID, rawLogs, container, logSelector)
+    return details, nil
+}
+```
+
+### Read Limits
+
+To prevent out-of-memory errors, Dashboard enforces limits (`modules/api/pkg/resource/container/logs.go:28-32`):
+
+```go
+// Maximum number of lines loaded from the apiserver
+var lineReadLimit int64 = 5000
+
+// Maximum number of bytes loaded from the apiserver  
+var byteReadLimit int64 = 500000
+```
+
+<Info>
+**From Beginning**: Reads up to 500KB
+**From End**: Reads up to 5000 lines
+</Info>
+
+### Log Options
+
+Dashboard configures log retrieval (`modules/api/pkg/resource/container/logs.go:77-94`):
+
+```go
+func mapToLogOptions(container string, logSelector *logs.Selection, previous bool) *v1.PodLogOptions {
+    logOptions := &v1.PodLogOptions{
+        Container:  container,
+        Follow:     false,
+        Previous:   previous,
+        Timestamps: true,
+    }
+    
+    if logSelector.LogFilePosition == logs.Beginning {
+        logOptions.LimitBytes = &byteReadLimit
+    } else {
+        logOptions.TailLines = &lineReadLimit
+    }
+    
+    return logOptions
+}
+```
+
+## Log Selection Options
+
+Dashboard supports flexible log viewing:
+
+### Position Selection
+
+<Tabs>
+  <Tab title="From End (Default)">
+    Shows the most recent log lines (up to 5000 lines).
+    
+    **Use case**: Viewing recent activity or current application state
+  </Tab>
+  
+  <Tab title="From Beginning">
+    Shows logs from the start of the container (up to 500KB).
+    
+    **Use case**: Debugging container startup issues
+  </Tab>
+</Tabs>
+
+### Reference Point
+
+View logs relative to a specific timestamp or line number:
+
+```go
+type Selection struct {
+    LogFilePosition   string  // "beginning" or "end"
+    ReferencePoint    LogLineId
+    OffsetFrom        int
+    OffsetTo          int
+}
+```
+
+## Downloading Logs
+
+Download logs for offline analysis:
+
+<Steps>
+  <Step title="Open Log Viewer">
+    Navigate to the logs for your container
+  </Step>
+  
+  <Step title="Click Download">
+    Click the download icon in the log viewer toolbar
+  </Step>
+  
+  <Step title="Save File">
+    Logs are downloaded as a `.txt` file with timestamps
+  </Step>
+</Steps>
+
+### Log File Streaming
+
+For large log files, Dashboard streams directly to avoid memory issues (`modules/api/pkg/resource/container/logs.go:114-125`):
+
+```go
+func GetLogFile(client kubernetes.Interface, namespace, podID string, 
+    container string, opts *v1.PodLogOptions) (io.ReadCloser, error) {
+    
+    logOptions := &v1.PodLogOptions{
+        Container:  container,
+        Follow:     false,
+        Previous:   opts.Previous,
+        Timestamps: opts.Timestamps,
+    }
+    
+    logStream, err := openStream(client, namespace, podID, logOptions)
+    return logStream, err
+}
+```
+
+The stream is piped directly to the HTTP response, preventing memory exhaustion.
+
+## Log Format
+
+Logs are displayed with optional timestamps:
+
+```
+2026-03-05T10:30:45.123456789Z [INFO] Starting application
+2026-03-05T10:30:45.234567890Z [INFO] Loading configuration from /etc/config
+2026-03-05T10:30:45.345678901Z [INFO] Connecting to database
+2026-03-05T10:30:46.456789012Z [INFO] Database connection established
+2026-03-05T10:30:46.567890123Z [INFO] Server listening on :8080
+```
+
+### Log Line Processing
+
+Dashboard parses and structures log data (`modules/api/pkg/resource/container/logs.go:136-156`):
+
+```go
+func ConstructLogDetails(podID string, rawLogs string, container string, 
+    logSelector *logs.Selection) *logs.LogDetails {
+    
+    parsedLines := logs.ToLogLines(rawLogs)
+    logLines, fromDate, toDate, logSelection, lastPage := parsedLines.SelectLogs(logSelector)
+    
+    readLimitReached := isReadLimitReached(
+        int64(len(rawLogs)), 
+        int64(len(parsedLines)), 
+        logSelector.LogFilePosition,
+    )
+    truncated := readLimitReached && lastPage
+    
+    info := logs.LogInfo{
+        PodName:       podID,
+        ContainerName: container,
+        FromDate:      fromDate,
+        ToDate:        toDate,
+        Truncated:     truncated,
+    }
+    
+    return &logs.LogDetails{
+        Info:      info,
+        Selection: logSelection,
+        LogLines:  logLines,
+    }
+}
+```
+
+## Common Use Cases
+
+### Debugging Application Errors
+
+<Steps>
+  <Step title="Identify Failed Pod">
+    Navigate to the pod list and look for pods with error status
+  </Step>
+  
+  <Step title="View Recent Logs">
+    Open logs from the end to see recent error messages
+  </Step>
+  
+  <Step title="Check Previous Logs">
+    If the container crashed, enable "Previous" to see logs before the crash
+  </Step>
+  
+  <Step title="Download for Analysis">
+    Download logs to search for patterns or share with your team
+  </Step>
+</Steps>
+
+### Investigating Startup Issues
+
+<Steps>
+  <Step title="Select Beginning Position">
+    View logs from the beginning of the container lifecycle
+  </Step>
+  
+  <Step title="Review Initialization">
+    Check init container logs for startup failures
+  </Step>
+  
+  <Step title="Verify Configuration">
+    Look for configuration loading errors or missing environment variables
+  </Step>
+</Steps>
+
+### Monitoring Application Activity
+
+<Steps>
+  <Step title="Enable Auto-Refresh">
+    Manually refresh the log view to see new entries (auto-follow coming soon)
+  </Step>
+  
+  <Step title="Filter by Container">
+    Switch between containers to monitor different aspects of your application
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Logs are truncated">
+    Dashboard limits log retrieval to prevent memory issues:
+    - **From End**: 5000 lines maximum
+    - **From Beginning**: 500KB maximum
+    
+    Use `kubectl logs` for complete log access:
+    ```bash
+    kubectl logs <pod-name> -n <namespace> --tail=10000
+    ```
+  </Accordion>
+  
+  <Accordion title="Cannot access logs">
+    **Check RBAC permissions:**
+    ```bash
+    kubectl auth can-i get pods/log --as=system:serviceaccount:kubernetes-dashboard:kubernetes-dashboard -n <namespace>
+    ```
+    
+    Ensure your service account has the `get` permission for `pods/log`.
+  </Accordion>
+  
+  <Accordion title="Previous logs not available">
+    Previous logs are only retained until the pod is deleted. For persistent logging:
+    - Use a log aggregation system (Fluentd, Filebeat)
+    - Configure persistent log storage
+    - Enable audit logging
+  </Accordion>
+  
+  <Accordion title="Logs load slowly">
+    Large log files take time to retrieve. Optimize by:
+    - Reducing log verbosity
+    - Implementing log rotation
+    - Using structured logging
+    - Configuring shorter retention periods
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use structured logging">
+    Implement JSON logging for better parsing and filtering:
+    
+    ```json
+    {"timestamp":"2026-03-05T10:30:45Z","level":"INFO","message":"User logged in","user_id":123}
+    ```
+  </Accordion>
+  
+  <Accordion title="Configure appropriate log levels">
+    - **Production**: INFO or WARNING
+    - **Staging**: DEBUG
+    - **Development**: TRACE/DEBUG
+  </Accordion>
+  
+  <Accordion title="Implement log rotation">
+    Prevent disk space issues by configuring container log rotation:
+    
+    ```json
+    {
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use log aggregation for production">
+    Dashboard logs are useful for quick debugging, but use dedicated log aggregation for:
+    - Long-term retention
+    - Advanced search and filtering  
+    - Alerting and analysis
+    - Compliance and audit requirements
+  </Accordion>
+</AccordionGroup>
+
+## Limitations
+
+Be aware of Dashboard log viewer limitations:
+
+- **No live streaming**: Logs don't auto-refresh (manual refresh required)
+- **Size limits**: 5000 lines or 500KB maximum
+- **No filtering**: Text search requires downloading logs
+- **Single container**: View one container at a time
+
+<Tip>
+For advanced log analysis, integrate with tools like:
+- **ELK Stack** (Elasticsearch, Logstash, Kibana)
+- **Grafana Loki**
+- **Splunk**
+- **Datadog**
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Shell Access" href="/user/shell-access">
+    Execute commands in running containers
+  </Card>
+  <Card title="Monitoring Metrics" href="/user/monitoring-metrics">
+    View resource utilization and performance data
+  </Card>
+</CardGroup>

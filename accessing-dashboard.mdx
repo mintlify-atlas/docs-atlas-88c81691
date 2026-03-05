@@ -1,0 +1,477 @@
+---
+title: Accessing Dashboard
+description: How to access Kubernetes Dashboard after installation
+---
+
+<Warning>
+  **Project Archived**: This project is now archived and no longer maintained. Please consider using [Headlamp](https://github.com/kubernetes-sigs/headlamp) for new deployments.
+</Warning>
+
+## Overview
+
+Once Kubernetes Dashboard is installed in your cluster, there are several methods to access it. This guide covers the most common approaches, from simple port forwarding to production-ready ingress configurations.
+
+<Note>
+  The methods described here assume you used the default Helm-based installation. If you modified the default configuration, you may need to adjust the service names and namespaces accordingly.
+</Note>
+
+## Access Methods
+
+### kubectl port-forward (Recommended for Development)
+
+The simplest and most secure method for accessing Dashboard locally is using `kubectl port-forward`. This method works without any ingress configuration and is ideal for development and testing.
+
+<Steps>
+  <Step title="Start Port Forwarding">
+    Forward the Kong proxy service to your local machine:
+    
+    ```bash
+    kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
+    ```
+    
+    <Note>
+      The command will block your terminal. Keep it running while you access Dashboard.
+    </Note>
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Open your browser and navigate to:
+    
+    ```
+    https://localhost:8443
+    ```
+    
+    <Warning>
+      Your browser will show a certificate warning because Dashboard uses a self-signed certificate by default. This is expected for local development. Click "Advanced" and proceed to the site.
+    </Warning>
+  </Step>
+  
+  <Step title="Login">
+    You'll be presented with the Dashboard login screen. You'll need a bearer token to authenticate.
+    
+    See the [Creating Sample User](#creating-a-sample-user) section below for instructions on generating a token.
+  </Step>
+</Steps>
+
+**Advantages**:
+- No additional configuration required
+- Secure (traffic stays within kubectl tunnel)
+- Works on any platform
+
+**Disadvantages**:
+- Only accessible from the machine running the command
+- Requires keeping terminal open
+- Not suitable for production
+
+### kubectl proxy
+
+Another local access method using the Kubernetes API proxy:
+
+<Steps>
+  <Step title="Start kubectl proxy">
+    ```bash
+    kubectl proxy --port=8001
+    ```
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Navigate to the following URL:
+    
+    ```
+    http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard-kong-proxy:443/proxy/
+    ```
+    
+    <Warning>
+      Note the trailing slash at the end of the URL - it's required!
+    </Warning>
+  </Step>
+</Steps>
+
+<Note>
+  **Important Limitation**: When using `kubectl proxy`, the Authorization header will not work properly because the API server drops additional headers. Use bearer token authentication on the login screen instead.
+</Note>
+
+### Ingress (Recommended for Production)
+
+For production deployments, use an Ingress resource to expose Dashboard with proper TLS and authentication.
+
+<Steps>
+  <Step title="Prerequisites">
+    Ensure you have:
+    - An Ingress controller installed (e.g., nginx-ingress, Traefik)
+    - cert-manager for TLS certificate management (optional but recommended)
+    - A domain name pointing to your cluster
+  </Step>
+  
+  <Step title="Enable Ingress in Helm">
+    Update your Dashboard installation with Ingress enabled:
+    
+    ```bash
+    helm upgrade kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --namespace kubernetes-dashboard \
+      --set app.ingress.enabled=true \
+      --set app.ingress.hosts[0]=dashboard.example.com \
+      --set app.ingress.ingressClassName=nginx \
+      --set app.ingress.tls.enabled=true
+    ```
+    
+    Replace `dashboard.example.com` with your actual domain.
+  </Step>
+  
+  <Step title="Configure TLS with cert-manager">
+    If using cert-manager, configure the issuer:
+    
+    ```bash
+    helm upgrade kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --namespace kubernetes-dashboard \
+      --set app.ingress.enabled=true \
+      --set app.ingress.hosts[0]=dashboard.example.com \
+      --set app.ingress.ingressClassName=nginx \
+      --set app.ingress.issuer.name=letsencrypt-prod \
+      --set app.ingress.issuer.scope=cluster
+    ```
+  </Step>
+  
+  <Step title="Verify Ingress">
+    Check that the Ingress resource was created:
+    
+    ```bash
+    kubectl get ingress -n kubernetes-dashboard
+    ```
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Navigate to your configured domain:
+    
+    ```
+    https://dashboard.example.com
+    ```
+  </Step>
+</Steps>
+
+**Default Ingress Annotations**:
+
+When using the default configuration, Dashboard applies these annotations:
+
+```yaml
+nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+nginx.ingress.kubernetes.io/ssl-redirect: "true"
+```
+
+<Note>
+  These annotations ensure proper HTTPS communication between the ingress controller and Dashboard's Kong gateway.
+</Note>
+
+### NodePort Service
+
+Expose Dashboard directly on a node port (not recommended for production):
+
+<Steps>
+  <Step title="Update Service Type">
+    Modify the Kong proxy service to use NodePort:
+    
+    ```bash
+    kubectl patch svc kubernetes-dashboard-kong-proxy -n kubernetes-dashboard \
+      -p '{"spec":{"type":"NodePort"}}'
+    ```
+  </Step>
+  
+  <Step title="Get NodePort">
+    Find the assigned port:
+    
+    ```bash
+    kubectl get svc kubernetes-dashboard-kong-proxy -n kubernetes-dashboard
+    ```
+    
+    Look for the port mapping in the output (e.g., `443:30001/TCP`).
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Access Dashboard using any node's IP address:
+    
+    ```
+    https://<node-ip>:<node-port>
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  NodePort exposes Dashboard directly on your cluster nodes. This is generally not recommended for production due to security concerns. Use Ingress instead.
+</Warning>
+
+### LoadBalancer Service
+
+For cloud environments, use a LoadBalancer service:
+
+<Steps>
+  <Step title="Update Service Type">
+    ```bash
+    kubectl patch svc kubernetes-dashboard-kong-proxy -n kubernetes-dashboard \
+      -p '{"spec":{"type":"LoadBalancer"}}'
+    ```
+  </Step>
+  
+  <Step title="Get External IP">
+    Wait for the external IP to be assigned:
+    
+    ```bash
+    kubectl get svc kubernetes-dashboard-kong-proxy -n kubernetes-dashboard --watch
+    ```
+    
+    This may take several minutes depending on your cloud provider.
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Once the EXTERNAL-IP is assigned:
+    
+    ```
+    https://<external-ip>
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  LoadBalancer services typically incur additional costs from your cloud provider and expose Dashboard to the internet. Ensure you have proper authentication and network policies in place.
+</Note>
+
+## Authentication
+
+### Creating a Sample User
+
+To access Dashboard, you need a bearer token. Here's how to create a sample admin user:
+
+<Steps>
+  <Step title="Create Service Account">
+    Create a file named `dashboard-adminuser.yaml`:
+    
+    ```yaml
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: admin-user
+      namespace: kubernetes-dashboard
+    ```
+    
+    Apply it:
+    ```bash
+    kubectl apply -f dashboard-adminuser.yaml
+    ```
+  </Step>
+  
+  <Step title="Create ClusterRoleBinding">
+    Create a file named `dashboard-clusterrolebinding.yaml`:
+    
+    ```yaml
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: admin-user
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: cluster-admin
+    subjects:
+    - kind: ServiceAccount
+      name: admin-user
+      namespace: kubernetes-dashboard
+    ```
+    
+    Apply it:
+    ```bash
+    kubectl apply -f dashboard-clusterrolebinding.yaml
+    ```
+    
+    <Warning>
+      This grants full cluster-admin privileges. For production, create more restrictive roles with only the necessary permissions.
+    </Warning>
+  </Step>
+  
+  <Step title="Generate Token">
+    Create a temporary token:
+    
+    ```bash
+    kubectl -n kubernetes-dashboard create token admin-user
+    ```
+    
+    This will output a JWT token. Copy it for use in the Dashboard login screen.
+    
+    **For a long-lived token**, create a Secret:
+    
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: admin-user
+      namespace: kubernetes-dashboard
+      annotations:
+        kubernetes.io/service-account.name: "admin-user"
+    type: kubernetes.io/service-account-token
+    ```
+    
+    Then retrieve it:
+    ```bash
+    kubectl get secret admin-user -n kubernetes-dashboard -o jsonpath="{.data.token}" | base64 -d
+    ```
+  </Step>
+  
+  <Step title="Login to Dashboard">
+    1. Navigate to Dashboard using one of the access methods above
+    2. Select "Token" authentication method
+    3. Paste the token you generated
+    4. Click "Sign in"
+  </Step>
+</Steps>
+
+### Clean Up Sample User
+
+When you're done testing, remove the admin user:
+
+```bash
+kubectl -n kubernetes-dashboard delete serviceaccount admin-user
+kubectl -n kubernetes-dashboard delete clusterrolebinding admin-user
+kubectl -n kubernetes-dashboard delete secret admin-user  # if you created the long-lived token
+```
+
+## Security Considerations
+
+<AccordionGroup>
+  <Accordion title="Always use HTTPS">
+    Dashboard should only be accessed over HTTPS. The Kong gateway uses HTTPS by default. Never disable TLS in production.
+  </Accordion>
+  
+  <Accordion title="Network Policies">
+    Consider enabling network policies to restrict access:
+    
+    ```bash
+    helm upgrade kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --namespace kubernetes-dashboard \
+      --set app.security.networkPolicy.enabled=true
+    ```
+  </Accordion>
+  
+  <Accordion title="Token Security">
+    - Token login only works over HTTPS
+    - Never commit tokens to version control
+    - Use short-lived tokens when possible
+    - Rotate tokens regularly
+    - Grant minimal required permissions
+  </Accordion>
+  
+  <Accordion title="Pod Security">
+    Dashboard runs with restrictive security contexts by default:
+    
+    - Non-root user (UID 1001, GID 2001)
+    - Read-only root filesystem
+    - No privilege escalation
+    - Dropped all capabilities
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Certificate warnings in browser">
+    **Cause**: Dashboard uses self-signed certificates by default.
+    
+    **Solutions**:
+    - For development: Accept the certificate warning
+    - For production: Use cert-manager with a trusted CA like Let's Encrypt
+  </Accordion>
+  
+  <Accordion title="Cannot connect - connection refused">
+    **Troubleshooting steps**:
+    
+    1. Verify pods are running:
+       ```bash
+       kubectl get pods -n kubernetes-dashboard
+       ```
+    
+    2. Check service exists:
+       ```bash
+       kubectl get svc kubernetes-dashboard-kong-proxy -n kubernetes-dashboard
+       ```
+    
+    3. Check port-forward command is correct:
+       ```bash
+       kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
+       ```
+  </Accordion>
+  
+  <Accordion title="Login fails with 'Invalid token'">
+    **Possible causes**:
+    - Token has expired (if using temporary token)
+    - Accessing over HTTP instead of HTTPS
+    - Token was not copied correctly
+    - Service account was deleted
+    
+    **Solution**: Generate a new token and ensure you're accessing over HTTPS.
+  </Accordion>
+  
+  <Accordion title="403 Forbidden errors after login">
+    **Cause**: The service account doesn't have sufficient permissions.
+    
+    **Solution**: Review and update the RBAC permissions for your service account. See [Kubernetes RBAC documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) for details.
+  </Accordion>
+  
+  <Accordion title="404 errors loading Dashboard resources">
+    **Possible causes**:
+    - Incorrect proxy URL (missing trailing slash)
+    - Cluster configuration issues
+    - Known issue with Kubernetes 1.7.x
+    
+    **Solutions**:
+    - Ensure URL ends with `/` when using kubectl proxy
+    - Try accessing via port-forward instead
+    - Check Dashboard logs: `kubectl logs -n kubernetes-dashboard -l app.kubernetes.io/name=web`
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Configuration
+
+### Custom TLS Certificates
+
+Provide your own TLS certificates:
+
+```bash
+kubectl create secret tls kubernetes-dashboard-certs \
+  --cert=path/to/tls.crt \
+  --key=path/to/tls.key \
+  -n kubernetes-dashboard
+
+helm upgrade kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --namespace kubernetes-dashboard \
+  --set app.ingress.tls.secretName=kubernetes-dashboard-certs
+```
+
+### Reverse Proxy with Authentication
+
+For advanced setups, you can use a reverse proxy (e.g., OAuth2 Proxy) in front of Dashboard to handle authentication:
+
+1. Deploy OAuth2 Proxy or similar
+2. Configure it to pass `Authorization: Bearer <token>` header
+3. Ensure the Kubernetes API server is configured to accept these tokens
+4. Point users to the proxy URL instead of directly to Dashboard
+
+<Warning>
+  Authorization headers do NOT work when accessing Dashboard through `kubectl proxy` because the API server drops additional headers.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Access Control" icon="shield-halved">
+    Learn about Kubernetes RBAC and how to configure granular permissions for Dashboard users
+  </Card>
+  
+  <Card title="View Metrics" icon="chart-line">
+    Enable metrics-server to view resource usage graphs in Dashboard
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Kubernetes Authentication Documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/)
+- [Kubernetes Authorization Documentation](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)
+- [Dashboard FAQ](https://github.com/kubernetes/dashboard/blob/master/docs/common/faq.md)
+- [Ingress NGINX Documentation](https://kubernetes.github.io/ingress-nginx/)
